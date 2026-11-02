@@ -296,6 +296,37 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
 .ribbon{background:#f26a00 !important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style id="print-a4">
+#print-area{display:none}
+@page{size:A4 landscape;margin:10mm}
+@media print{
+  body{margin:0 !important;padding:0 !important;background:#fff !important}
+  #print-area{display:flex !important;justify-content:center !important;position:static !important;width:100% !important;margin:0 !important;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff}
+  #print-area .pa-inner{width:190mm;max-width:190mm}
+  #print-area h2{font-size:15px;margin:0 0 2px}
+  #print-area .sub{font-size:11px;color:#333;margin-bottom:8px}
+  #print-area table{width:190mm;max-width:190mm;border-collapse:collapse;table-layout:fixed;font-size:7px}
+  #print-area th,#print-area td{border:1px solid #888;padding:2px 1px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
+  #print-area th{background:#e6edf5}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<style id="print-report">
+@media print{
+  body.print-report header, body.print-report nav, body.print-report #nav-overlay,
+  body.print-report footer, body.print-report #login-gate, body.print-report #cloud-btn { display:none !important }
+  body.print-report section:not(#report) { display:none !important }
+  body.print-report #report { display:block !important; text-align:center; width:100% !important }
+  body.print-report #report button { display:none !important }
+  body.print-report #report .table-wrapper { overflow:visible !important; width:100% !important; max-width:100% !important }
+  body.print-report #report table { width:100% !important; min-width:0 !important; max-width:100% !important; margin:0 auto; font-size:8px !important; border-collapse:collapse; table-layout:auto }
+  body.print-report #report th, body.print-report #report td { padding:2px 3px !important }
+  body.print-report #report th, body.print-report #report td { overflow-wrap:anywhere }
+  body.print-report #report h2, body.print-report #report h4 { text-align:center }
+  body.print-report { background:#fff !important }
+}
+</style>
 </head>
 <body>
 
@@ -420,8 +451,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
         <div class="card">
             <label>Select Structure</label>
             <select id="hw-type" onchange="hwRender()"></select>
+            <button type="button" id="hw-typelock" class="secondary" style="margin-top:8px" onclick="hwToggleTypeLock()"></button>
             <div id="hw-list" style="margin-top:14px"></div>
             <details class="stage" style="margin-top:16px"><summary>➕ Add part</summary><div style="padding:10px 0">
+                <label>Maramihang ilagay (kopyahin mula sa table, isang part bawat linya)</label>
+                <textarea id="hw-bulk" rows="5" placeholder="ANCHOR LOG	3&#10;CROSSARM, 19'	1&#10;INSULATOR, PORCELAIN	42" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px;border:1.5px solid #cbd5e1;border-radius:8px;margin:4px 0 8px"></textarea>
+                <button type="button" class="primary" onclick="hwAddBulk()">➕ Idagdag lahat</button>
             <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:end">
                 <div><label>Part name</label><input type="text" id="hw-new-name" placeholder="hal. Suspension Insulator"></div>
                 <div><label>Qty</label><input type="number" id="hw-new-qty" min="1" step="1" value="1"></div>
@@ -431,9 +466,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
         <div class="card" style="margin-top:14px">
             <h3>🧮 Calculate required parts</h3>
             <p class="small-note">Ilagay ang dami ng structure sa bawat type. Iwanang blangko ang hindi gagamitin.</p>
-            <div id="hw-calc-types" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:8px"></div>
-            <button type="button" class="primary" style="margin-top:10px" onclick="hwCalc()">🧮 Calculate</button>
+            <div id="hw-calc-types" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px"></div>
+            <div style="display:flex;gap:6px;margin-top:10px"><button type="button" class="primary" style="flex:1;margin-top:0;padding:12px 6px;font-size:14px" onclick="hwCalc()">🧮 Calculate</button>
+            <button type="button" class="secondary" style="flex:1;margin-top:0;padding:12px 6px;font-size:14px" onclick="exportHwCalcPdf()">📄 PDF (A4)</button>
+            <button type="button" class="primary" style="flex:1;margin-top:0;padding:12px 6px;font-size:14px" onclick="hwSaveWithdraw()">💾 I-save at i-clear</button></div>
             <div id="hw-calc-out" style="margin-top:12px"></div>
+        </div>
+    <div class="card" style="margin-top:14px">
+            <h3>📜 Mga naunang withdraw</h3>
+            <p class="small-note">Ang mga na-save na kalkulasyon. Pindutin ang PDF para ma-print ulit.</p>
+            <div id="hw-history"></div>
         </div>
     </section>
     <section id="settingsPage">
@@ -463,6 +505,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
     </section>
     <section id="pricesPage">
         <h2>💲 Prices</h2>
+        <button type="button" id="pr-lock-btn" class="secondary" style="margin-bottom:10px" onclick="togglePriceLock()">🔓 I-lock ang presyo</button>
         <div class="card">
             <h3>Step prices</h3>
             <p class="small-note" style="margin:8px 0 12px">Ang <strong>Roadside, Excavation, Dragging</strong> ay may sariling presyo, at ang <strong>Anchor Screw / Lag</strong> ay presyo kada piraso. Pareho ito sa lahat ng Structure Type.</p>
@@ -595,7 +638,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
     <section id="report">
         <h2>📋 Full Report and Totals</h2>
         <div id="report-content"></div>
-        <button class="primary" onclick="window.print()" style="margin-top:20px;">🖨️ Print Report</button>
+        <button class="primary" onclick="printReport()" style="margin-top:20px;">🖨️ Print Report</button>
         <button class="secondary" onclick="exportExcel()" style="margin-top:20px;margin-left:8px">📥 I-export sa Excel</button>
     </section>
 </div>
@@ -643,6 +686,9 @@ function cloudInit() {
   } catch(e) { console.error('[cloud init]', e); }
 }
 const LOCAL_ONLY = ['proj_new_v1', 'proj_dash_seen_v1', 'proj_str_status_v1', 'proj_tab'];
+let hwLocks = {};
+try { hwLocks = JSON.parse(localStorage.getItem('proj_hw_locks_v1') || '{}') || {}; } catch(e) { hwLocks = {}; }
+function hwTypeLocked(t) { return !!hwLocks[t]; }
 function cloudCollect() {
   const out = {};
   for(let i = 0; i < localStorage.length; i++) {
@@ -1526,10 +1572,33 @@ async function poShareLink(poId) {
     try {
         await CLOUD.db.collection('po_links').doc(po.token).set(snap);
     } catch(e) { alertMsg('Hindi ma-save ang link: ' + (e.code || e.message)); return; }
-    const url = 'https://akkaymundo.github.io/rehab-po/confirm.html?t=' + po.token;
-    try { await navigator.clipboard.writeText(url); alertMsg('✅ Nakopya ang link. I-paste sa Messenger o Viber.'); }
-    catch(e) { alertMsg('Link: ' + url); }
+    const base = location.href.split('?')[0].replace(/[^/]*$/, '');
+    const url = base + 'confirm.html?t=' + po.token;
+    poShowLink(url, po.poNo);
     poWatchOne(po);
+}
+// Ipinapakita ang buong link sa kahon, para makita at makopya bago ipadala
+function poShowLink(url, poNo) {
+    const bg = document.createElement('div');
+    bg.style.cssText = 'position:fixed;inset:0;background:rgba(3,10,20,.7);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+    bg.innerHTML = '<div style="background:#fff;color:#17283b;max-width:460px;width:100%;border-radius:12px;padding:18px;box-sizing:border-box">' +
+        '<h3 style="margin:0 0 8px;color:#0b2e4f">🔗 Link ng PO ' + escapeHtml(poNo) + '</h3>' +
+        '<p style="font-size:13px;color:#62748a;margin:0 0 10px">Ipadala ang buong link na ito sa contractor. Dapat may <b>/rehab-po/confirm.html</b> sa gitna.</p>' +
+        '<textarea id="lk-box" readonly rows="3" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px;border:1.5px solid #cbd5e1;border-radius:8px">' + escapeHtml(url) + '</textarea>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">' +
+        '<button type="button" class="secondary" id="lk-close">Isara</button>' +
+        '<button type="button" class="primary" id="lk-copy">📋 Kopyahin</button></div>' +
+        '<p id="lk-msg" style="font-size:13px;margin:10px 0 0;color:#0a7d3b"></p></div>';
+    document.body.appendChild(bg);
+    const box = bg.querySelector('#lk-box');
+    box.focus(); box.select();
+    bg.querySelector('#lk-close').onclick = () => bg.remove();
+    bg.onclick = e => { if(e.target === bg) bg.remove(); };
+    bg.querySelector('#lk-copy').onclick = async () => {
+        const msg = bg.querySelector('#lk-msg');
+        try { await navigator.clipboard.writeText(url); msg.textContent = '✅ Nakopya na. I-paste sa Messenger o Viber.'; }
+        catch(e) { box.select(); document.execCommand && document.execCommand('copy'); msg.textContent = '✅ Napili na ang link. Pindutin nang matagal at piliin ang Copy.'; }
+    };
 }
 function poWatchOne(po) {
     if(!po.token || !CLOUD.db || CLOUD.watch[po.token]) return;
@@ -1634,6 +1703,12 @@ function renderWeek() {
 }
 
 // ----- Export sa Excel: Structures, POs, Biyahe, at Shutdown (isang file, apat na sheet) -----
+// Print ng Full Report: landscape A4, nakasentro, buong columns ang makikita
+function printReport() {
+    document.body.classList.add('print-report');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-report'), { once: true });
+    window.print();
+}
 function exportExcel() {
     if(typeof XLSX === 'undefined') { alertMsg('Hindi ma-load ang Excel. I-check ang internet at i-refresh ang page.'); return; }
     const wb = XLSX.utils.book_new();
@@ -1657,6 +1732,54 @@ function exportExcel() {
 
     XLSX.writeFile(wb, 'Rehab_Report_' + todayISO() + '.xlsx');
     alertMsg('✅ Na-export ang Excel file.');
+}
+
+// ----- Export ng structure list ng isang site: Excel at PDF (A4 portrait) -----
+function siteStructRows(lineId) {
+    return (data[lineId] || []).slice().sort((a, b) => String(a.no).localeCompare(String(b.no), undefined, { numeric: true })).map(x => {
+        const transfer = [x.transferAlphaDate, x.transferBravoDate, x.transferCharlieDate].filter(Boolean).sort().pop() || '';
+        return [x.no, x.type, parseInt(x.poles, 10) || 0, x.roadsideDate || '', x.excavationDate || '', x.draggingDate || '', x.anchorDate || '', x.erectionDate || '', transfer, x.retrievalDate || '', x.remarks || ''];
+    });
+}
+function siteName(lineId) { return (lines.find(l => l.id === lineId) || {}).name || 'Site'; }
+const SITE_HEAD = ['Structure', 'Type', 'Poles', 'Roadside', 'Excavation', 'Dragging', 'Anchor', 'Erection', 'Transfer', 'Retrieve', 'Remarks'];
+const SITE_COLS = [17, 12, 10, 16, 16, 16, 16, 16, 16, 16, 39];
+function exportSiteExcel(lineId) {
+    if(typeof XLSX === 'undefined') { alertMsg('Hindi ma-load ang Excel. I-check ang internet at i-refresh ang page.'); return; }
+    const rows = siteStructRows(lineId);
+    if(!rows.length) { alertMsg('Wala pang structure sa site na ito.'); return; }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([SITE_HEAD].concat(rows));
+    ws['!cols'] = [14, 10, 8, 13, 13, 13, 13, 13, 13, 13, 26].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Structures');
+    XLSX.writeFile(wb, 'Structure_' + siteName(lineId).replace(/[^\w\-]+/g, '_') + '_' + todayISO() + '.xlsx');
+}
+function exportSitePdf(lineId) {
+    const rows = siteStructRows(lineId);
+    if(!rows.length) { alertMsg('Wala pang structure sa site na ito.'); return; }
+    if(!window.jspdf || !window.jspdf.jsPDF) { alertMsg('Hindi ma-load ang PDF. I-check ang internet at i-refresh ang page.'); return; }
+    const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Listahan ng Structure: ' + siteName(lineId), 105, 16, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Petsa ng ulat: ' + todayISO() + '   |   Kabuuang structure: ' + rows.length, 105, 22, { align: 'center' });
+    doc.autoTable({
+        head: [SITE_HEAD],
+        body: rows.map(r => r.map(v => String(v == null ? '' : v))),
+        startY: 27,
+        margin: { left: 10, right: 10 },
+        tableWidth: 190,
+        styles: { fontSize: 7, cellPadding: 1, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { fillColor: [11, 46, 79], textColor: 255, fontSize: 8, halign: 'center' },
+        columnStyles: {
+            0: { cellWidth: 17 }, 1: { cellWidth: 12 }, 2: { cellWidth: 10, halign: 'center' },
+            3: { cellWidth: 16 }, 4: { cellWidth: 16 }, 5: { cellWidth: 16 }, 6: { cellWidth: 16 },
+            7: { cellWidth: 16 }, 8: { cellWidth: 16 }, 9: { cellWidth: 16 }, 10: { cellWidth: 39 }
+        }
+    });
+    doc.save('Structure_' + siteName(lineId).replace(/[^\w\-]+/g, '_') + '_' + todayISO() + '.pdf');
 }
 
 // ----- Burahin lahat ng data (local at cloud) -----
@@ -1755,6 +1878,17 @@ try {
         }
     }
 } catch(e) { prices = { flat: {}, types: {} }; }
+function applyPriceLock() {
+    const locked = !!prices.locked;
+    document.querySelectorAll('#pr-flat input, #pr-types input').forEach(i => { i.disabled = locked; });
+    const b = document.getElementById('pr-lock-btn');
+    if(b) b.textContent = locked ? '🔒 Naka-lock ang presyo. Pindutin para i-unlock' : '🔓 I-lock ang presyo';
+}
+function togglePriceLock() {
+    prices.locked = !prices.locked;
+    try { lsSet('proj_prices_v5', JSON.stringify(prices)); } catch(e) {}
+    applyPriceLock();
+}
 function renderPrices() {
     document.getElementById('pr-flat').innerHTML = FLAT_PRICES.map(([k, label, lab2]) => {
         const v = prices.flat[k];
@@ -1804,6 +1938,8 @@ function hwRender() {
     const sel = document.getElementById('hw-type');
     if(!sel.options.length) sel.innerHTML = PRICE_TYPES.map(t => '<option value="' + t + '">Structure Type ' + t + '</option>').join('');
     const t = hwCur(), rows = hwPartsAll()[t] || [];
+    const tl = document.getElementById('hw-typelock');
+    if(tl) tl.textContent = hwTypeLocked(t) ? '🔒 Naka-lock ang buong ' + t + '. Pindutin para i-unlock' : '🔓 I-lock ang buong ' + t;
     document.getElementById('hw-list').innerHTML = rows.length ? rows.map((r, i) => {
         if(i === hwEditIdx) {
             return '<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:6px;align-items:end;padding:1px 0;border-bottom:1px solid var(--line,#d9e2ec)">' +
@@ -1815,11 +1951,31 @@ function hwRender() {
         return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:1px 6px;border-bottom:1px solid var(--line,#d9e2ec);font-size:16px;line-height:1.3">' +
             '<span style="font-weight:600;flex:1">' + hwEsc(r.name) + '</span>' +
             '<span style="white-space:nowrap">' + hwEsc(r.qty) + ' pc</span>' +
-            '<span style="display:flex;gap:4px"><button type="button" class="secondary btn-sm" style="padding:2px 8px" onclick="hwStartEdit(' + i + ')">✏️</button>' +
-            '<button type="button" class="secondary btn-sm" style="padding:2px 8px" onclick="hwDel(' + i + ')">🗑️</button></span></div>';
+            '<span style="display:flex;gap:4px">' +
+            (hwTypeLocked(hwCur()) ? '' :
+                '<button type="button" class="secondary btn-sm" style="padding:2px 8px" onclick="hwStartEdit(' + i + ')">✏️</button>' +
+                '<button type="button" class="secondary btn-sm" style="padding:2px 8px" onclick="hwDel(' + i + ')">🗑️</button>') +
+            '</span></div>';
     }).join('') : '<p class="small-note">No parts yet for Type ' + t + '.</p>';
 }
-function hwStartEdit(i) { hwEditIdx = i; hwRender(); }
+function hwToggleTypeLock() {
+    const t = hwCur();
+    hwLocks[t] = !hwLocks[t];
+    lsSet('proj_hw_locks_v1', JSON.stringify(hwLocks));
+    hwEditIdx = -1;
+    hwRender();
+}
+function hwToggleLockOld(i) {
+    const r = hwPartsAll()[hwCur()][i];
+    if(!r) return;
+    r.locked = !r.locked;
+    hwPartsSave();
+    hwRender();
+}
+function hwStartEdit(i) {
+    if(hwTypeLocked(hwCur())) { alertMsg('Naka-lock ang type na ito. I-unlock muna.'); return; }
+    hwEditIdx = i; hwRender();
+}
 function hwCancelEdit() { hwEditIdx = -1; hwRender(); }
 function hwSaveEdit(i) {
     const name = document.getElementById('hw-ed-name').value.trim();
@@ -1832,6 +1988,11 @@ function hwSaveEdit(i) {
     hwRender();
 }
 // Kabuuang parts na kailangang i-withdraw, batay sa dami ng structure ng bawat type
+let hwLastCalc = [], hwLastTypes = [], hwActual = {};
+let hwWithdraw = [];
+try { hwWithdraw = JSON.parse(localStorage.getItem('proj_withdraw_v1') || '[]') || []; } catch(e) { hwWithdraw = []; }
+function hwSaveList() { lsSet('proj_withdraw_v1', JSON.stringify(hwWithdraw)); }
+function hwSetActual(el) { hwActual[el.dataset.k] = el.value; }
 function hwCalc() {
     const all = hwPartsAll(), agg = {}, order = [];
     document.querySelectorAll('[data-calc-type]').forEach(inp => {
@@ -1845,13 +2006,17 @@ function hwCalc() {
             agg[key].by[t] = (agg[key].by[t] || 0) + q;
         });
     });
+    hwLastCalc = order.map(k => ({ key: k, name: agg[k].name, total: agg[k].total }));
+    hwLastTypes = Array.from(document.querySelectorAll('[data-calc-type]')).map(i => ({ t: i.dataset.calcType, n: parseInt(i.value, 10) || 0 })).filter(x => x.n > 0);
     const out = document.getElementById('hw-calc-out');
     if(!order.length) { out.innerHTML = '<p class="small-note">Maglagay ng dami ng structure, at siguraduhing may part na ang napiling type.</p>'; return; }
     out.innerHTML = order.map(k => {
         const a = agg[k];
-        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 8px;border-bottom:1px solid var(--line,#d9e2ec);font-size:16px;line-height:1.3">' +
-            '<span><strong>' + hwEsc(a.name) + '</strong><br><small>' + Object.keys(a.by).map(t => t + ': ' + a.by[t]).join(' · ') + '</small></span>' +
-            '<span style="white-space:nowrap;font-weight:700">' + a.total + ' pc</span></div>';
+        const act = hwActual[k] === undefined ? '' : hwActual[k];
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line,#d9e2ec);font-size:15px">' +
+            '<span style="flex:1"><strong>' + hwEsc(a.name) + '</strong></span>' +
+            '<span style="white-space:nowrap;font-weight:700;text-align:right">' + a.total + ' pc</span>' +
+            '<input type="number" min="0" step="1" placeholder="Actual" data-k="' + hwEsc(k) + '" value="' + hwEsc(act) + '" oninput="hwSetActual(this)" style="width:90px"></div>';
     }).join('');
 }
 function hwAdd() {
@@ -1865,7 +2030,104 @@ function hwAdd() {
     document.getElementById('hw-new-qty').value = '1';
     hwRender();
 }
-function hwDel(i) { hwPartsAll()[hwCur()].splice(i, 1); hwPartsSave(); hwEditIdx = -1; hwRender(); }
+// Maramihang part: bawat linya ay "pangalan<TAB>dami" o "pangalan, dami". Hindi kasama ang header.
+function hwAddBulk() {
+    const box = document.getElementById('hw-bulk');
+    const t = hwCur();
+    const lines = String(box.value || '').split(/\r?\n/);
+    const all = hwPartsAll();
+    const list = all[t] = all[t] || [];
+    let added = 0, skipped = [];
+    lines.forEach(raw => {
+        const ln = raw.trim();
+        if(!ln) return;
+        if(/^(item\s*description|qty|quantity|description)\b/i.test(ln)) return;
+        const m = ln.match(/^(.*?)[\t|,;]+\s*(\d+)\s*$/) || ln.match(/^(.*\D)\s+(\d+)\s*$/);
+        if(m && m[1].trim()) { list.push({ name: m[1].trim(), qty: m[2] }); added++; }
+        else skipped.push(ln);
+    });
+    if(!added) { alertMsg('Walang nakitang part. Maglagay ng pangalan at dami sa bawat linya.'); return; }
+    hwPartsSave();
+    box.value = '';
+    hwRender();
+    alertMsg('✅ Naidagdag ang ' + added + ' part.' + (skipped.length ? ' Hindi nabasa: ' + skipped.join(' / ') : ''));
+}
+// PDF ng resulta ng Calculate: A4 portrait, nakasentro
+function makePartsPdf(rec) {
+    if(!window.jspdf || !window.jspdf.jsPDF) { alertMsg('Hindi ma-load ang PDF. I-check ang internet at i-refresh ang page.'); return; }
+    const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Listahan ng Kailangang Parts', 105, 16, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    const typeLine = (rec.types || []).map(x => 'Type ' + x.t + ': ' + x.n).join('   |   ') || '-';
+    doc.text('Petsa: ' + rec.date + '   |   Structure: ' + typeLine, 105, 22, { align: 'center', maxWidth: 185 });
+    doc.autoTable({
+        head: [['#', 'Part', 'Kabuuang dami', 'Actual na ibinigay']],
+        body: (rec.parts || []).map((r, i) => [String(i + 1), r.name, String(r.total), (r.actual === undefined || r.actual === '') ? '' : String(r.actual)]),
+        startY: 28,
+        margin: { left: 10, right: 10 },
+        tableWidth: 190,
+        styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { fillColor: [11, 46, 79], textColor: 255, halign: 'center' },
+        columnStyles: {
+            0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 100 },
+            2: { cellWidth: 35, halign: 'center', fontStyle: 'bold' }, 3: { cellWidth: 43, halign: 'center' }
+        }
+    });
+    doc.save('Parts_' + rec.date + '_' + (rec.id || 'calc') + '.pdf');
+}
+function exportHwCalcPdf() {
+    hwCalc();
+    if(!hwLastCalc.length) { alertMsg('Walang resulta. Maglagay muna ng dami ng structure at pindutin ang Calculate.'); return; }
+    makePartsPdf({
+        id: 'calc', date: todayISO(), types: hwLastTypes,
+        parts: hwLastCalc.map(r => ({ name: r.name, total: r.total, actual: hwActual[r.key] === undefined ? '' : hwActual[r.key] }))
+    });
+}
+function hwSaveWithdraw() {
+    hwCalc();
+    if(!hwLastCalc.length) { alertMsg('Walang resulta na isasave. Maglagay muna ng dami at pindutin ang Calculate.'); return; }
+    const rec = {
+        id: 'w' + Date.now(), date: todayISO(), types: hwLastTypes.slice(),
+        parts: hwLastCalc.map(r => ({ name: r.name, total: r.total, actual: hwActual[r.key] === undefined ? '' : hwActual[r.key] }))
+    };
+    hwWithdraw.unshift(rec);
+    hwSaveList();
+    // I-clear ang result, ang mga kahon ng bawat type, at ang actual
+    document.querySelectorAll('[data-calc-type]').forEach(i => { i.value = ''; });
+    hwActual = {};
+    hwLastCalc = [];
+    hwLastTypes = [];
+    document.getElementById('hw-calc-out').innerHTML = '';
+    renderHwHistory();
+    alertMsg('✅ Na-save ang withdraw (' + rec.date + ').');
+}
+function renderHwHistory() {
+    const box = document.getElementById('hw-history');
+    if(!box) return;
+    if(!hwWithdraw.length) { box.innerHTML = '<p class="small-note">Wala pang na-save na withdraw.</p>'; return; }
+    box.innerHTML = hwWithdraw.map(r => {
+        const types = (r.types || []).map(x => x.t + ': ' + x.n).join(' · ') || '-';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--line,#d9e2ec)">' +
+            '<div style="flex:1"><strong>' + escapeHtml(r.date) + '</strong><br><small>' + escapeHtml(types) + ' · ' + (r.parts || []).length + ' part</small></div>' +
+            '<button type="button" class="secondary btn-sm" onclick="hwPdfRecord(\'' + r.id + '\')">📄 PDF</button>' +
+            '<button type="button" class="danger btn-sm" onclick="hwDelRecord(\'' + r.id + '\')">🗑️</button></div>';
+    }).join('');
+}
+function hwPdfRecord(id) {
+    const r = hwWithdraw.find(x => x.id === id);
+    if(r) makePartsPdf(r);
+}
+async function hwDelRecord(id) {
+    if(!(await askOk('Burahin ang na-save na withdraw na ito?'))) return;
+    hwWithdraw = hwWithdraw.filter(x => x.id !== id);
+    hwSaveList();
+    renderHwHistory();
+}
+function hwDel(i) {
+    if(hwTypeLocked(hwCur())) { alertMsg('Naka-lock ang type na ito. I-unlock muna.'); return; }
+    hwPartsAll()[hwCur()].splice(i, 1); hwPartsSave(); hwEditIdx = -1; hwRender();
+}
 
 let toastTimer;
 // Dialog sa loob ng page (gumagana kahit sa artifact/preview na walang popup)
@@ -2278,6 +2540,10 @@ function buildDynamicSections() {
             </div>
             
             <h3>📋 Structure List</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                <button type="button" class="secondary btn-sm" onclick="exportSiteExcel('${line.id}')">📥 Excel</button>
+                <button type="button" class="secondary btn-sm" onclick="exportSitePdf('${line.id}')">🖨️ PDF (A4)</button>
+            </div>
             <p class="small-note">👉 I-scroll pakanan para makita ang lahat → | 🔁 = Napalitan ang numero/lokasyon</p>
             <div class="table-wrapper" id="${line.id}-list"></div>
         </section>`;
@@ -2533,13 +2799,15 @@ function openSteps(lineId, id) {
 function fillFromRetrieval(item) {
     const d = item.retrievalDate;
     if(!d) return;
+    const rb = (item.retrievalBy || '').trim();
     if(!item.anchorDate) item.anchorDate = d;
     ['erection', 'excavation', 'dragging', 'roadside'].forEach(kind => {
-        const rows = unitsOf(item, kind).map(u => ({ date: u.date || d, by: u.by }));
+        const rows = unitsOf(item, kind).map(u => ({ date: u.date || d, by: u.by || (kind === 'erection' ? rb : '') }));
         setUnits(item, kind, rows);
     });
     ['Alpha', 'Bravo', 'Charlie'].forEach(n => {
         if(!item['transfer' + n + 'Date']) { item['transfer' + n] = true; item['transfer' + n + 'Date'] = d; }
+        if(rb && !item['transfer' + n + 'By']) item['transfer' + n + 'By'] = rb;
     });
 }
 function saveSteps() {
@@ -2722,17 +2990,26 @@ function newAll() {
     return newStore;
 }
 function newSave() { try { lsSet('proj_new_v1', JSON.stringify(newAll())); } catch(e) {} }
-function newCount(key) { const m = newAll()[key]; return (m && m.v < NEW_VIEWS) ? m.n : 0; }
+const NEW_DAY_MS = 24 * 60 * 60 * 1000;
+function isStructKey(key) { return String(key).indexOf('s|') === 0; }
+// Structure list: 24 oras mula nang magbago. Dashboard: hanggang 5 pagbukas.
+function newCount(key) {
+    const m = newAll()[key];
+    if(!m) return 0;
+    if(isStructKey(key)) return (Date.now() - (m.at || 0) < NEW_DAY_MS) ? m.n : 0;
+    return m.v < NEW_VIEWS ? m.n : 0;
+}
 function newAdd(key, add) {
     const all = newAll(), cur = all[key];
-    const active = !!(cur && cur.v < NEW_VIEWS);
-    all[key] = { v: 0, n: (active ? cur.n : 0) + add };
+    const active = !!cur && newCount(key) > 0;
+    all[key] = { v: 0, n: (active ? cur.n : 0) + add, at: Date.now() };
     newSave();
 }
 // Tatakbo kada bukas ng app: binibilang ang bawat pagbukas
 function newBumpViews() {
     const all = newAll();
     Object.keys(all).forEach(k => {
+        if(isStructKey(k)) return;
         all[k].v = (all[k].v || 0) + 1;
         if(all[k].v >= NEW_VIEWS) delete all[k];
     });
@@ -2791,8 +3068,8 @@ function updateDashboardCore() {
     lines.forEach(line => {
         const items = data[line.id] || [];
         const texts = items.map(i => getStatus(i).text);
-        const count = w => texts.filter(t => t.includes(w)).length;
-        const cleared = count('COMPLETED'), erected = count('ERECTED'), transferred = count('TRANSFERRED');
+        const count = w => texts.filter(t => t.includes(w) && !t.includes('COMPLETED')).length;
+        const cleared = texts.filter(t => t.includes('COMPLETED')).length, erected = count('ERECTED'), transferred = count('TRANSFERRED');
         const prepared = count('READY TO ERECT'), inProg = count('IN PROGRESS'), notStarted = count('NOT STARTED');
         const polesPlaced = items.reduce((a, i) => a + (parseInt(i.poles) || 0), 0);
         const clearedPoles = items.filter(i => getStatus(i).text.includes('COMPLETED')).reduce((a, i) => a + (parseInt(i.poles) || 0), 0);
@@ -2882,8 +3159,9 @@ function showTab(id) {
     if(id === 'workersPage') renderWorkersPage();
     if(id === 'pricesPage') { const d0 = document.querySelector('#pr-flat details.stage'); if(d0) d0.open = true; }
     if(id === 'poPage') renderPO();
-    if(id === 'hwPage') hwRender();
+    if(id === 'hwPage') { hwRender(); renderHwHistory(); }
     if(id === 'weekPage') renderWeek();
+    if(id === 'pricesPage') applyPriceLock();
     
     
     if(id === 'report') renderReport();
@@ -2900,6 +3178,7 @@ mergeSameDateShutdowns();
 syncWorkers();
 fillWorkerSelects();
 renderPrices();
+applyPriceLock();
 
 // === START ===
 async function startApp() {
