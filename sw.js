@@ -1,7 +1,7 @@
 // Offline support for the 69kV Rehab Tracker.
 // Keeps the app, the confirm page, and the libraries (Firebase, Excel, PDF) on the phone,
 // so the app opens and exports work without internet.
-const CACHE = 'rehab-offline-v1';
+const CACHE = 'rehab-offline-v2';
 const CORE = ['./', './index.html', './confirm.html'];
 
 self.addEventListener('install', event => {
@@ -13,7 +13,12 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  // Burahin ang lumang cache para hindi na lumabas ang lumang page
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k.startsWith('rehab-offline-') && k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
@@ -24,7 +29,7 @@ self.addEventListener('fetch', event => {
   // Pages: try the network first, keep a copy, and use the copy when offline
   if (url.origin === self.location.origin && req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then(res => {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(req, copy));
