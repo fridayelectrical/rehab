@@ -271,6 +271,7 @@ tr.flash td{animation:flashrow 2.8s ease-out}
 /* Electrical theme: colors only, layout and behavior are unchanged */
 #st-trip-card .card{overflow:hidden}
 #st-trip-card .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sd-list{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 #st-trip-card input,#st-trip-card select{max-width:100% !important;width:100% !important;box-sizing:border-box}
 #st-trip-card .table-wrapper{overflow-x:auto;width:100%}
 @media (max-width:520px){#st-trip-card .grid{grid-template-columns:1fr}}
@@ -314,6 +315,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style id="print-report">
 @media print{
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
   body.print-report header, body.print-report nav, body.print-report #nav-overlay,
   body.print-report footer, body.print-report #login-gate, body.print-report #cloud-btn { display:none !important }
   body.print-report section:not(#report) { display:none !important }
@@ -346,17 +348,18 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
 <div class="container">
     <nav id="main-nav" aria-label="Menu">
         <div class="nav-brand"><strong><img id="nav-logo" alt="" style="height:44px;width:auto;margin-bottom:4px"><br>69kV Rehab</strong><small>Project Progress Tracker</small></div>
-        <div class="nav-label">Pangunahin</div>
+        <div class="nav-label">Main</div>
         <button class="active" onclick="showTab('dashboard')">📊 Dashboard</button>
         <button onclick="showTab('linesHub')">📍 Project Sites</button>
-        <button onclick="showTab('stepsPage')">🪜 Steps</button>
+        <button onclick="showTab('stepsPage')">📝 To Do</button>
         <button onclick="showTab('shutdownPage')">⚡ Shutdown</button>
-        <button onclick="showTab('weekPage')">📅 Ngayong Linggo</button>
+        <button onclick="showTab('weekPage')">📅 This Week</button>
+        <button onclick="showTab('roadsidePage')">🚚 Roadside Hauling</button>
         <button onclick="showTab('poPage')">📄 PO</button>
         <button onclick="showTab('hwPage')">🔩 Line Hardware</button>
-        <div class="nav-label">Pamamahala at Ulat</div>
+        <div class="nav-label">Management and Reports</div>
         <button onclick="showTab('lineMgr')">➕ Add Project Site</button>
-        <button onclick="showTab('workersPage')">👷 Contractors</button>
+        <button onclick="showTab('workersPage')">👷 Subcon</button>
         <button onclick="showTab('pricesPage')">💲 Prices</button>
         <button onclick="showTab('settingsPage')">⚙️ Settings</button>
         <button onclick="showTab('report')">📋 Full Report</button>
@@ -413,7 +416,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
             <div class="grid" style="margin-top:8px">
                 <div><label>PO Number *</label><input type="text" id="po-no" placeholder="Hal. PO-001"></div>
                 <div><label>Date</label><input type="date" id="po-date"></div>
-                <div><label>Contractor *</label><select id="po-worker" onchange="poSel = new Set(); renderPOStructures()"></select></div>
+                <div><label>Subcon *</label><select id="po-worker" onchange="poSel = new Set(); renderPOStructures()"></select></div>
                 <div><label>🔒 Total Amount (automatic)</label><input type="text" id="po-amount" readonly value="₱0.00" style="font-weight:700;background:#f1f5f9"></div>
                 <div><label>Prepared by</label><input type="text" id="po-prepared"></div>
                 <div style="grid-column: span 2;"><label>Note (optional)</label><input type="text" id="po-note"></div>
@@ -433,7 +436,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
 
     <!-- WORKERS PAGE -->
     <section id="workersPage">
-        <h2>👷 Contractors</h2>
+        <h2>👷 Subcon</h2>
         <div class="card">
             <h3>➕ Add name</h3>
             <div class="price-all" style="margin-top:10px">
@@ -479,7 +482,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
         </div>
     </section>
     <section id="settingsPage">
-        <h2>⚙️ Settings</h2>
+        <h2 id="settings-title">⚙️ Settings</h2>
         <div class="card">
             <h3>💾 Backup</h3>
             <p class="small-note">Ise-save ang lahat ng data: structures, PO, pirma, presyo, workers, at line hardware.</p>
@@ -496,6 +499,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
             <h3>🔐 Account</h3>
             <p id="cloud-info" class="small-note"></p>
             <button type="button" id="cloud-btn" class="primary" style="margin-top:8px" onclick="cloudLogin()">🔐 Mag-login</button>
+        </div>
+        <div class="card" id="log-card" style="margin-top:14px;display:none">
+            <h3>🧾 Talaan ng pagbabago</h3>
+            <p class="small-note">Sino ang nagbago ng structure, kailan, at ano ang binago. Ang pinakabago ay nasa itaas.</p>
+            <div id="log-list"></div>
         </div>
         <div class="card" style="margin-top:14px;border-left:5px solid #d32f2f">
             <h3>🗑️ Clear all data</h3>
@@ -521,10 +529,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
 
     <!-- STEPS PAGE -->
     <section id="stepsPage">
-        <h2>🪜 Steps</h2>
+        <h2>📝 To Do</h2>
         <div class="card">
             <div class="grid">
                 <div><label>Project Site</label><select id="st-site" onchange="stepsSiteChanged()"></select></div>
+                <div><label>Mula sa shutdown (opsyonal)</label><select id="st-shutdown" onchange="stepsShutdownChanged()"><option value="">— Wala —</option></select></div>
                 <div id="st-trip-card"></div>
                 <div><label>Mga Structure (pwedeng marami)</label>
                     <details class="stage" id="st-pick"><summary><span class="sdtxt" id="st-pick-txt">Pumili ng structure</span></summary>
@@ -545,7 +554,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
                         <div class="stages">
                         <details class="stage" data-k="" onchange="stageBadge(this)">
                             <summary>🚚 Roadside<span class="sbadge">Not yet</span></summary>
-                            <div class="stage-body"><p class="small-note">Each pole has its own date and contractor. Use a different contractor per pole if needed.</p><div id="st-roadside-list"></div><button type="button" class="secondary btn-sm" style="margin-top:8px" onclick="copyUnitsToAll('roadside')">Copy first to all</button><button type="button" class="clear-stage" onclick="clearStage(this)">✖ Clear step</button></div>
+                            <div class="stage-body"><p class="small-note">Each pole has its own date and contractor. Use a different contractor per pole if needed.</p><div id="rh-box"></div>
+                            <div id="st-roadside-list"></div><button type="button" class="secondary btn-sm" style="margin-top:8px" onclick="copyUnitsToAll('roadside')">Copy first to all</button><button type="button" class="clear-stage" onclick="clearStage(this)">✖ Clear step</button></div>
                         </details>
                         <details class="stage" data-k="" onchange="stageBadge(this)">
                             <summary>⛏️ Excavation<span class="sbadge">Not yet</span></summary>
@@ -561,7 +571,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
                         </details>
                         <details class="stage" data-k="" onchange="stageBadge(this)">
                             <summary>🔩 Anchor Screw / Lag<span class="sbadge">Not yet</span></summary>
-                            <div class="stage-body"><label>Anchor Screw / Lag Date</label><input type="date" id="st-anchor-date"><label style="margin-top:6px">👷 Contractor</label><select id="st-anchor-by" class="worker-sel"></select><label style="margin-top:6px">Quantity of Anchor Screw / Lag</label><input type="number" id="st-anchor-qty" min="0" step="1" placeholder="0"><button type="button" class="clear-stage" onclick="clearStage(this)">✖ Clear step</button></div>
+                            <div class="stage-body"><label>Anchor Screw / Lag Date</label><input type="date" id="st-anchor-date"><label style="margin-top:6px">👷 Subcon</label><select id="st-anchor-by" class="worker-sel"></select><label style="margin-top:6px">Quantity of Anchor Screw / Lag</label><input type="number" id="st-anchor-qty" min="0" step="1" placeholder="0"><button type="button" class="clear-stage" onclick="clearStage(this)">✖ Clear step</button></div>
                         </details>
                         <details class="stage" data-k="" onchange="stageBadge(this)">
                             <summary>🔄 Transfer (Alpha / Bravo / Charlie)<span class="sbadge">Not yet</span></summary>
@@ -580,7 +590,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
                         </div>
                     </div>
             </div>
-            <div style="margin-top:15px;"><button class="primary" onclick="saveSteps()">💾 Save Steps</button></div>
+            <div style="margin-top:15px;"><button class="primary" onclick="saveSteps()">💾 Save To Do</button></div>
         </div>
     </section>
 
@@ -618,8 +628,27 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
     <div id="dynamic-sections"></div>
 
     <!-- REPORT -->
+    <section id="roadsidePage">
+        <h2>🚚 Roadside Hauling</h2>
+        <div class="card">
+            <label>Project Site</label>
+            <select id="rs-site" onchange="renderRoadside()" style="margin-bottom:10px"></select>
+            <p class="small-note" id="rs-price"></p>
+            <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div><label>Petsa</label><input type="date" id="rs-date"></div>
+                <div><label>Gumawa</label><select class="worker-sel" id="rs-by"></select></div>
+                <div><label>Ilan ang nakarga (poste)</label><input type="number" id="rs-poles" min="1" step="1" placeholder="0" oninput="renderRsStructs()"></div>
+                <div id="rs-structs" style="grid-column:1 / -1"></div>
+                <div style="display:flex;align-items:flex-end"><button type="button" class="primary" style="width:100%" onclick="addRoadsideTrip()">➕ Idagdag ang biyahe</button></div>
+            </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+            <h3>Mga biyahe</h3>
+            <div id="rs-list"></div>
+        </div>
+    </section>
     <section id="weekPage">
-        <h2>📅 Ngayong Linggo</h2>
+        <h2>📅 This Week</h2>
         <div class="card">
             <h3>⚡ Paalala sa Shutdown (14 araw)</h3>
             <div id="wk-shutdown"></div>
@@ -627,6 +656,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#ff8a00 !impor
         <div class="card" style="margin-top:14px">
             <h3>🪜 Structure na malapit nang i-retrieve</h3>
             <div id="wk-structs"></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+            <h3>⏳ Natagalan (higit 14 araw)</h3>
+            <p class="small-note">Structure na nasa Ready to erect o Erected nang higit 14 araw mula sa huling petsa.</p>
+            <div id="wk-stuck"></div>
         </div>
         <div class="card" style="margin-top:14px">
             <h3>⏰ PO na hindi pa napirmahan</h3>
@@ -681,11 +715,12 @@ function cloudInit() {
     CLOUD.auth = firebase.auth();
     try { CLOUD.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e) {}
     CLOUD.db = firebase.firestore();
+    try { CLOUD.db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch(e) {}
     CLOUD.ref = CLOUD.db.collection('tracker').doc('main');
     CLOUD.ok = true;
   } catch(e) { console.error('[cloud init]', e); }
 }
-const LOCAL_ONLY = ['proj_new_v1', 'proj_dash_seen_v1', 'proj_str_status_v1', 'proj_tab'];
+const LOCAL_ONLY = ['proj_new_v1', 'proj_dash_seen_v1', 'proj_str_status_v1', 'proj_tab', 'proj_snap_v1', 'proj_log_on'];
 let hwLocks = {};
 try { hwLocks = JSON.parse(localStorage.getItem('proj_hw_locks_v1') || '{}') || {}; } catch(e) { hwLocks = {}; }
 function hwTypeLocked(t) { return !!hwLocks[t]; }
@@ -701,6 +736,7 @@ function cloudPush() {
   if(!CLOUD.ok || !CLOUD.on) return;
   clearTimeout(CLOUD.timer);
   CLOUD.timer = setTimeout(() => {
+    logChanges();
     CLOUD.ref.set({ data: cloudCollect(), updated: new Date().toISOString() })
       .catch(e => console.error('[cloud push]', e));
   }, 400);
@@ -830,7 +866,8 @@ function cloudLogout() {
   if(CLOUD.ok) CLOUD.auth.signOut().then(() => location.reload());
 }
 function cloudWatchAuth() {
-  if(!CLOUD.ok) { cloudShowStatus(null); cloudGate(true, 'Hindi ma-load ang login. I-check ang internet at i-refresh ang page.'); return; }
+  // Walang internet: hindi nakakarga ang login, pero gumagana pa rin ang app sa device. Walang harang sa menu.
+  if(!CLOUD.ok) { cloudShowStatus(null); return; }
   CLOUD.auth.onAuthStateChanged(async user => {
     if(!user) {
       CLOUD.on = false; cloudShowStatus(null);
@@ -864,6 +901,81 @@ function cloudCount(raw) {
     return Object.values(obj).reduce((a, v) => a + (Array.isArray(v) ? v.length : 0), 0);
   } catch(e) { return 0; }
 }
+// ----- Talaan ng pagbabago: sino ang nagbago ng ano, at kailan -----
+const LOG_LABEL = { no: 'Structure', oldNo: 'Old No.', type: 'Type', poles: 'Poles', remarks: 'Remarks',
+    roadsideDate: 'Roadside', roadsideBy: 'Roadside gumawa', excavationDate: 'Excavation', excavationBy: 'Excavation gumawa',
+    draggingDate: 'Dragging', draggingBy: 'Dragging gumawa', erectionDate: 'Erection', erectionBy: 'Erection gumawa',
+    anchorDate: 'Anchor', anchorBy: 'Anchor gumawa', transferAlphaDate: 'Transfer Alpha', transferAlphaBy: 'Alpha gumawa',
+    transferBravoDate: 'Transfer Bravo', transferBravoBy: 'Bravo gumawa', transferCharlieDate: 'Transfer Charlie', transferCharlieBy: 'Charlie gumawa',
+    retrievalDate: 'Retrieve', retrievalBy: 'Retrieve gumawa', retrievalComplete: 'Retrieval complete', anchorQty: 'Anchor qty' };
+function logSnapshot() {
+    const snap = {};
+    lines.forEach(l => (data[l.id] || []).forEach(x => {
+        const f = {};
+        Object.keys(x).forEach(k => { const v = x[k]; if(v !== null && typeof v !== 'object') f[k] = v; });
+        snap[String(x.id)] = { site: l.name, no: x.no, f };
+    }));
+    return snap;
+}
+function logChanges() {
+    let prev = null;
+    try { prev = JSON.parse(localStorage.getItem('proj_snap_v1') || 'null'); } catch(e) { prev = null; }
+    const now = logSnapshot();
+    localStorage.setItem('proj_snap_v1', JSON.stringify(now));
+    if(!prev || !CLOUD.auth || !CLOUD.auth.currentUser) return;
+    const who = CLOUD.auth.currentUser.email || '';
+    const t = new Date().toISOString();
+    const entries = [];
+    Object.keys(now).forEach(id => {
+        const a = now[id], b = prev[id];
+        if(!b) { entries.push({ t, by: who, site: a.site, no: a.no, field: 'Bagong structure', from: '', to: '' }); return; }
+        Object.keys(a.f).forEach(k => {
+            const from = b.f[k] === undefined ? '' : b.f[k], to = a.f[k];
+            if(String(from) !== String(to) && k !== 'id') entries.push({ t, by: who, site: a.site, no: a.no, field: LOG_LABEL[k] || k, from, to });
+        });
+    });
+    Object.keys(prev).forEach(id => { if(!now[id]) entries.push({ t, by: who, site: prev[id].site, no: prev[id].no, field: 'Nabura ang structure', from: '', to: '' }); });
+    if(!entries.length) return;
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem('proj_log') || '[]') || []; } catch(e) { log = []; }
+    log = entries.concat(log).slice(0, 1000);
+    lsSet('proj_log', JSON.stringify(log));
+}
+// Lihim na switch: pindutin ng 5 beses ang pamagat ng Settings para i-on o i-off ang talaan
+let logTaps = [];
+function logIsOn() { return localStorage.getItem('proj_log_on') === '1'; }
+function logInitSwitch() {
+    const t = document.querySelector('header .brand') || document.querySelector('.brand') || document.getElementById('settings-title');
+    if(!t) return;
+    t.addEventListener('click', () => {
+        const now = Date.now();
+        logTaps = logTaps.filter(x => now - x < 3000);
+        logTaps.push(now);
+        if(logTaps.length >= 5) {
+            logTaps = [];
+            const on = !logIsOn();
+            try { localStorage.setItem('proj_log_on', on ? '1' : '0'); } catch(e) {}
+            renderLog();
+            alertMsg(on ? '✅ Naka-on ang talaan.' : 'Naka-off ang talaan.');
+        }
+    });
+}
+function renderLog() {
+    const card = document.getElementById('log-card');
+    const box = document.getElementById('log-list');
+    if(card) card.style.display = logIsOn() ? 'block' : 'none';
+    if(!box || !logIsOn()) return;
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem('proj_log') || '[]') || []; } catch(e) { log = []; }
+    if(!log.length) { box.innerHTML = '<p class="small-note">Wala pang naitalang pagbabago.</p>'; return; }
+    box.innerHTML = log.slice(0, 150).map(e => {
+        const when = new Date(e.t).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const change = (e.from !== '' && e.from !== undefined ? escapeHtml(String(e.from)) + ' → ' : '') + escapeHtml(String(e.to));
+        return '<div style="padding:8px 4px;border-bottom:1px solid var(--line,#d9e2ec);font-size:13px">' +
+            '<div><strong>' + escapeHtml(e.by || '-') + '</strong> <span class="small-note">· ' + when + '</span></div>' +
+            '<div>' + escapeHtml(e.site || '') + ' · <strong>' + escapeHtml(String(e.no || '')) + '</strong> · ' + escapeHtml(e.field || '') + ': ' + change + '</div></div>';
+    }).join('');
+}
 function lsSet(k, v) {
   localStorage.setItem(k, v);
   if(String(k).startsWith('proj_')) cloudPush();
@@ -896,6 +1008,68 @@ function saveAllData() {
 function saveShutdowns() {
     lsSet('proj_shutdowns', JSON.stringify(shutdowns));
 }
+// ----- Hakbang ng shutdown: nilalagyan ang Erection, Transfer, o Retrieve ng mga structure sa shutdown na ito -----
+function sdStepOpen(lineId, shutdownId) {
+    const sd = (shutdowns[lineId] || []).find(x => x.id === shutdownId);
+    if(!sd) return;
+    const bg = document.createElement('div');
+    bg.style.cssText = 'position:fixed;inset:0;background:rgba(3,10,20,.7);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+    bg.innerHTML = '<div style="background:#fff;color:#17283b;max-width:420px;width:100%;border-radius:12px;padding:18px;box-sizing:border-box">' +
+        '<h3 style="margin:0 0 6px;color:#0b2e4f">🛠️ Hakbang ng shutdown ' + escapeHtml(fmtDate(sd.date)) + '</h3>' +
+        '<p style="font-size:13px;color:#62748a;margin:0 0 10px">Lalagyan ng petsa at gumawa ang mga structure ng shutdown na ito na wala pang petsa sa hakbang na ito.</p>' +
+        '<label>Hakbang</label><select id="sd-st-kind" style="width:100%;margin:4px 0 10px;padding:10px;font-size:15px">' +
+        '<option value="erection">Erection</option><option value="transfer">Transfer (Alpha, Bravo, Charlie)</option><option value="retrieval">Retrieve</option></select>' +
+        '<label>Petsa</label><input type="date" id="sd-st-date" value="' + escapeHtml(sd.date) + '" style="width:100%;margin:4px 0 14px;padding:10px;font-size:15px;box-sizing:border-box">' +
+        '<div id="sd-st-chk-wrap" style="display:none;margin:0 0 14px;padding:10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#f8fafc"><label style="display:flex;gap:8px;align-items:center;font-size:15px;cursor:pointer"><input type="checkbox" id="sd-st-chk" style="width:18px;height:18px"> ✅ Kumpleto na (Completed), i-update sa Structure List</label></div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="secondary" id="sd-st-cancel">Kanselahin</button><button type="button" class="primary" id="sd-st-ok">Ilagay</button></div>' +
+        '<p id="sd-st-msg" style="font-size:13px;margin:10px 0 0;color:#0a7d3b"></p></div>';
+    document.body.appendChild(bg);
+    const kindSel = bg.querySelector('#sd-st-kind');
+    kindSel.onchange = () => { bg.querySelector('#sd-st-chk-wrap').style.display = kindSel.value === 'retrieval' ? 'block' : 'none'; };
+    bg.querySelector('#sd-st-cancel').onclick = () => bg.remove();
+    bg.onclick = e => { if(e.target === bg) bg.remove(); };
+    bg.querySelector('#sd-st-ok').onclick = () => {
+        const kind = bg.querySelector('#sd-st-kind').value;
+        const date = bg.querySelector('#sd-st-date').value;
+        if(!date) { bg.querySelector('#sd-st-msg').textContent = 'Ilagay ang petsa.'; return; }
+        const done = bg.querySelector('#sd-st-chk').checked;
+        if(kind === 'retrieval' && !done) { bg.remove(); return; } // Walang check: walang retrieve na ilalagay, walang pop-up
+        const n = sdApplyStep(lineId, sd, kind, date, done);
+        bg.remove();
+        renderShutdowns(lineId);
+        renderShutdownSummary();
+        updateDashboard();
+        alertMsg(n ? '✅ Nalagyan ang ' + n + ' structure.' : 'Walang structure na nangangailangan ng petsa sa hakbang na ito.');
+    };
+}
+function sdApplyStep(lineId, sd, kind, date, done) {
+    let count = 0;
+    (sd.assignments || []).forEach(a => {
+        (a.structIds || []).forEach(id => {
+            const st = (data[lineId] || []).find(x => String(x.id) === String(id));
+            if(!st) return;
+            const by = a.worker || '';
+            if(kind === 'erection') {
+                if(!st.erectionDate) { st.erectionDate = date; st.erectionBy = st.erectionBy || by; count++; }
+            } else if(kind === 'transfer') {
+                let done = false;
+                ['Alpha', 'Bravo', 'Charlie'].forEach(n => {
+                    if(!st['transfer' + n + 'Date']) { st['transfer' + n] = true; st['transfer' + n + 'Date'] = date; st['transfer' + n + 'By'] = st['transfer' + n + 'By'] || by; done = true; }
+                });
+                if(done) count++;
+            } else if(kind === 'retrieval') {
+                if(done) {
+                    const had = !!st.retrievalDate;
+                    if(!had) { st.retrievalDate = date; st.retrievalBy = st.retrievalBy || by; fillFromRetrieval(st); }
+                    st.retrievalComplete = true;
+                    if(!had || !st.retrievalComplete) count++;
+                }
+            }
+        });
+    });
+    saveAllData();
+    return count;
+}
 async function deleteShutdown(lineId, shutdownId) {
     if(!await askOk('Burahin ang shutdown record?')) return;
     shutdowns[lineId] = (shutdowns[lineId] || []).filter(x => x.id !== shutdownId);
@@ -916,7 +1090,7 @@ function renderShutdowns(lineId) {
             return '<div class="sd-assign">👷 <strong>' + escapeHtml(a.worker) + ':</strong> ' + (nos.join(', ') || '-') + ' <span class="small-note">(' + nos.length + ')</span></div>';
         }).join('');
         return '<div class="shutdown-item"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><strong>Shutdown #' + (i + 1) + (planned ? ' / ' + planned : '') + '</strong>' +
-          '<span><button class="edit-btn" onclick="sdEdit(\'' + lineId + '\', \'' + sd.id + '\')">✏️ Edit</button> <button class="danger btn-sm" onclick="deleteShutdown(\'' + lineId + '\', \'' + sd.id + '\')">🗑️ Delete</button></span></div>' +
+          '<span><button class="secondary btn-sm" onclick="sdStepOpen(\'' + lineId + '\', \'' + sd.id + '\')">🛠️ Hakbang</button> <button class="edit-btn" onclick="sdEdit(\'' + lineId + '\', \'' + sd.id + '\')">✏️ Edit</button> <button class="danger btn-sm" onclick="deleteShutdown(\'' + lineId + '\', \'' + sd.id + '\')">🗑️ Delete</button></span></div>' +
           '<p><strong>📅 ' + fmtDate(sd.date) + '</strong></p>' +
           (planned ? '<p class="small-note">Natitira pa pagkatapos nito: ' + Math.max(0, planned - (i + 1)) + ' shutdown</p>' : '') +
           (sd.note ? '<p>' + escapeHtml(sd.note) + '</p>' : '') + (asg || '<p class="small-note">No contractor assigned yet.</p>') + '</div>';
@@ -962,7 +1136,7 @@ function phaseInfo(item) {
     const b = !!(item.transferBravo && item.transferBravoDate);
     const c = !!(item.transferCharlie && item.transferCharlieDate);
     const cur = c ? 'Charlie' : b ? 'Bravo' : a ? 'Alpha' : '-';
-    return { a, b, c, cur, transferred: a && b && c, pending: a && b && c && !item.retrievalComplete };
+    return { a, b, c, cur, transferred: a && b && c, pending: a && b && c && !item.retrievalComplete && !item.retrievalDate };
 }
 function workersCell(item) {
     const L = [['Roadside','roadsideBy'],['Excavation','excavationBy'],['Dragging','draggingBy'],['Erection','erectionBy'],['Anchor/Lag','anchorBy'],['Alpha','transferAlphaBy'],['Bravo','transferBravoBy'],['Charlie','transferCharlieBy'],['Retrieve','retrievalBy']].filter(x => item[x[1]]);
@@ -981,6 +1155,19 @@ function updateWorkersList() {
 function anchorCell(item) {
     const d = item.anchorDate, q = item.anchorQty;
     return '<td class="mk' + (d ? ' y' : '') + '" title="' + (d ? fmtDate(d) : '') + '">' + (d ? '✔' + (q ? ' <small>×' + q + '</small>' : '') : '○') + '</td>';
+}
+function roadInfo(item) {
+    const n = parseInt(item.poles, 10) || 0;
+    if(!item.roadsidePoles) return { done: !!item.roadsideDate, text: item.roadsideDate ? '✔' : '○', date: item.roadsideDate || '' };
+    const dated = item.roadsidePoles.filter(u => u && u.date);
+    const latest = dated.map(u => u.date).sort().pop() || '';
+    if(!dated.length) return { done: false, text: '○', date: '' };
+    if(dated.length >= n) return { done: true, text: '✔', date: latest };
+    return { done: false, text: dated.length + '/' + n, date: latest };
+}
+function roadCell(item) {
+    const r = roadInfo(item);
+    return '<td class="mk' + (r.done ? ' y' : '') + '" title="' + (r.date ? fmtDate(r.date) : '') + '">' + r.text + '</td>';
 }
 function mk(date) {
     return '<td class="mk' + (date ? ' y' : '') + '" title="' + (date && date !== 'tapos' ? fmtDate(date) : '') + '">' + (date ? '✔' : '○') + '</td>';
@@ -1038,7 +1225,7 @@ function sdAddRow(a) {
     const box = document.getElementById('sd-rows');
     const row = document.createElement('div');
     row.className = 'sd-row';
-    row.innerHTML = '<div><label>Contractor</label><select class="sd-worker worker-sel"></select></div>' +
+    row.innerHTML = '<div><label>Subcon</label><select class="sd-worker worker-sel"></select></div>' +
       '<div><label>Mga Structure</label><details class="stage"><summary><span class="sdtxt">Pumili ng structure</span></summary><div class="stage-body"><div class="sd-list"></div>' +
       '<button type="button" class="secondary btn-sm" style="margin-top:10px" onclick="sdPickAll(this)">Select all</button></div></details></div>' +
       '<button type="button" class="danger sd-del" onclick="sdRemoveRow(this)">✖ Alisin</button>';
@@ -1053,12 +1240,26 @@ function sdBuildList(row, checked) {
     list.innerHTML = st.length ? st.map(x => '<label class="po-row"><input type="checkbox" class="sd-chk" value="' + x.id + '"' + (checked.has(x.id) ? ' checked' : '') + '><span><strong>' + escapeHtml(x.no) + '</strong> · ' + escapeHtml(x.type) + '</span></label>').join('')
       : '<p class="small-note">No structure in this project site yet.</p>';
 }
+// Mga structure na tapos na (retrieved) sa ibang shutdown: hindi na mapipili. Ang natitira ay makikita ulit sa susunod na shutdown.
+function sdBusySet() {
+    const lineId = document.getElementById('sd-line').value;
+    const busy = new Set();
+    (shutdowns[lineId] || []).forEach(sd => {
+        if(sd.id === sdEditId) return;
+        (sd.assignments || []).forEach(a => (a.structIds || []).forEach(id => {
+            const st = (data[lineId] || []).find(x => String(x.id) === String(id));
+            if(st && (st.retrievalComplete || st.retrievalDate)) busy.add(String(id));
+        }));
+    });
+    return busy;
+}
 function sdUpdateAll() {
     const rows = [...document.querySelectorAll('#sd-rows .sd-row')];
+    const busy = sdBusySet();
     const chosen = rows.map(r => new Set([...r.querySelectorAll('.sd-chk:checked')].map(c => c.value)));
     rows.forEach((r, i) => {
         const others = new Set(); chosen.forEach((set, j) => { if(j !== i) set.forEach(v => others.add(v)); });
-        r.querySelectorAll('.sd-chk').forEach(c => { c.disabled = others.has(c.value); c.closest('label').classList.toggle('off', c.disabled); });
+        r.querySelectorAll('.sd-chk').forEach(c => { c.disabled = others.has(c.value) || busy.has(String(c.value)); c.closest('label').classList.toggle('off', c.disabled); });
         const nos = [...r.querySelectorAll('.sd-chk:checked')].map(c => c.parentElement.querySelector('strong').textContent);
         r.querySelector('.sdtxt').textContent = nos.length ? nos.join(', ') + ' (' + nos.length + ')' : 'Pumili ng structure';
     });
@@ -1209,7 +1410,7 @@ function renderTripForm(lineId) {
     fillWorkerSelects();
     const list = (data[lineId] || []).slice().sort((x, y) => String(x.no).localeCompare(String(y.no), undefined, { numeric: true }));
     if(!list.length) { box.innerHTML = '<p class="small-note">Wala pang structure sa site na ito.</p>'; return; }
-    box.innerHTML = '<div class="table-wrapper"><table class="tight"><thead><tr><th>Structure</th><th>Type</th><th class="r">Poste</th><th class="r">Nakarga na</th><th class="r">Natitira</th><th>Ngayong biyahe</th></tr></thead><tbody>' +
+    box.innerHTML = '<div class="table-wrapper"><table class="tight"><thead><tr><th>Structure</th><th>Type</th><th class="r">Poste</th><th class="r">Nakarga na</th><th class="r">Natitira</th><th>This trip</th></tr></thead><tbody>' +
         list.map(st => {
             const rem = structRemaining(lineId, st);
             return '<tr><td><strong>' + escapeHtml(st.no) + '</strong></td><td>' + escapeHtml(st.type) + '</td><td class="r">' + (parseInt(st.poles, 10) || 0) +
@@ -1285,9 +1486,7 @@ function unitSteps(item, worker, lineId) {
     const xPrice = parseFloat(prices.flat.excavation) || 0, out = [];
     const rPrice = parseFloat((prices.flat || {}).roadside) || 0;
     const dPrice = parseFloat((prices.flat || {}).dragging) || 0;
-    unitsOf(item, 'roadside').forEach((u, i) => {
-        if(u.date && sameName(u.by, worker)) out.push({ k: 'roadside:' + i, base: 'roadside', l: 'Roadside Pole ' + (i + 1), price: rPrice });
-    });
+    // Roadside ay hindi na sinisingil kada poste. Sinisingil na ito kada biyahe (Roadside Hauling).
     unitsOf(item, 'dragging').forEach((u, i) => {
         if(u.date && sameName(u.by, worker)) out.push({ k: 'dragging:' + i, base: 'dragging', l: 'Dragging Pole ' + (i + 1), price: dPrice });
     });
@@ -1314,14 +1513,26 @@ function poCalc() {
     const worker = document.getElementById('po-worker').value, out = [];
     if(!worker) return out;
     const billed = poBilled(worker);
+    const siteF = (document.getElementById('po-site-filter') || {}).value || '';
     poSel.forEach(key => {
         const [lineId, sid] = key.split('|');
+        if(siteF && lineId !== siteF) return;
         const item = (data[lineId] || []).find(x => String(x.id) === sid);
         if(!item) return;
         const info = poInfo(lineId, item, worker, billed);
         if(!info.avail.length) return;
         out.push({ lineId, structId: item.id, steps: info.avail.map(d => d.k), details: info.details, amount: info.amt });
     });
+    if(stepSelected('roadside')) Object.keys(trips).forEach(lineId => (trips[lineId] || []).forEach(t => {
+        if(siteF && lineId !== siteF) return;
+        if(!sameName(t.by, worker) || tripBilled(t.id, poEditId)) return;
+        const nos = (t.items || []).map(i => i.no + ' (' + i.poles + ')').join(', ');
+        out.push({
+            lineId, structId: null, steps: ['trip:' + t.id],
+            details: [{ k: 'trip:' + t.id, base: 'trip', l: 'Roadside biyahe', price: t.price || 0 }],
+            amount: t.price || 0, tripId: t.id, tripDate: t.date, tripBy: t.by, tripPoles: t.poles, tripNos: nos
+        });
+    }));
     return out;
 }
 // ----- Mga hakbang na sisingilin sa PO na ito -----
@@ -1331,9 +1542,9 @@ function renderPoStepPick() {
     const box = document.getElementById('po-steps-pick');
     if(!box) return;
     if(!poStepSel) poStepSel = new Set(STEP_DEFS.map(d => d.k));
-    box.innerHTML = '<div style="font-size:12px;font-weight:700;color:#334e68;margin-bottom:6px">Mga hakbang na sisingilin (alisin ang hindi isasama):</div>' +
-        '<div style="display:flex;gap:8px 14px;flex-wrap:wrap">' +
-        STEP_DEFS.map(d => '<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer">' +
+    box.innerHTML = '<div style="font-size:12px;font-weight:700;color:#334e68;margin-bottom:6px">Steps to bill (uncheck those not included):</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px">' +
+        STEP_DEFS.map(d => '<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;white-space:nowrap;min-width:0">' +
             '<input type="checkbox" value="' + d.k + '"' + (poStepSel.has(d.k) ? ' checked' : '') + ' onchange="poStepToggle(this)"> ' + d.l + '</label>').join('') +
         '</div>';
 }
@@ -1369,7 +1580,7 @@ function renderPO() {
           '<td style="white-space:normal;min-width:190px"><button class="edit-btn" onclick="poPreviewById(\'' + po.id + '\')">👁️ Preview</button> <button class="edit-btn" onclick="openPOForm(\'' + po.id + '\')">✏️ Edit</button> ' +
           '<button class="secondary btn-sm" onclick="poShareLink(\'' + po.id + '\')">🔗 Link</button> <button class="secondary btn-sm" onclick="signPO(\'' + po.id + '\')"' + (po.signature ? ' disabled' : '') + '>' + (po.signature ? '✅ Signed' : '✍️ Sign') + '</button> <button class="danger btn-sm" onclick="deletePO(\'' + po.id + '\')">🗑️</button></td></tr>';
     }).join('');
-    box.innerHTML = '<div class="table-wrapper"><table style="min-width:860px"><thead><tr><th>PO No.</th><th>Date</th><th>Contractor</th><th>Structures (Project Site)</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    box.innerHTML = '<div class="table-wrapper"><table style="min-width:860px"><thead><tr><th>PO No.</th><th>Date</th><th>Subcon</th><th>Structures (Project Site)</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 // Awtomatikong PO number: PO + taon + 3-digit na sunod-sunod (hal. PO2026001, PO2026002, PO2027001)
 function nextPoNo() {
@@ -1394,7 +1605,7 @@ async function openPOForm(id) {
     const sel = document.getElementById('po-worker');
     const names = allWorkers();
     if(po && !names.includes(po.worker)) names.push(po.worker);
-    sel.innerHTML = '<option value="">— Select contractor —</option>' + names.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
+    sel.innerHTML = '<option value="">— Select Subcon —</option>' + names.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
     sel.value = po ? po.worker : '';
     document.getElementById('po-site-filter').innerHTML = '<option value="">All project sites</option>' + lines.map(l => '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>').join('');
     poSel = new Set(po ? po.items.map(i => i.lineId + '|' + i.structId) : []);
@@ -1491,7 +1702,7 @@ function poDocHtml(po, draft) {
     let body = '';
     Object.keys(sites).forEach(name => {
         let sub = 0, rsPoles = 0, rsAmt = 0;
-        body += '<h4>📍 ' + escapeHtml(name) + ' <small style="font-weight:400;color:#62748a">· ' + sites[name].length + ' structure na naka-check</small></h4><table><thead><tr><th>Structure</th><th>Type</th><th>Steps</th><th class="r">Amount</th></tr></thead><tbody>';
+        body += '<h4>📍 ' + escapeHtml(name) + ' <small style="font-weight:400;color:#62748a">· ' + sites[name].length + ' structure na naka-check</small></h4><table><thead><tr><th>Structure</th><th>Type</th><th>To Do</th><th class="r">Amount</th></tr></thead><tbody>';
         sites[name].sort((a, b) => String(a.st.no).localeCompare(String(b.st.no), undefined, { numeric: true })).forEach(({ st, it }) => {
             const rs = (it.details || []).filter(d => String(d.k || '').split(':')[0] === 'roadside');
             const rsA = rs.reduce((t, d) => t + (parseFloat(d.price) || 0), 0);
@@ -1517,14 +1728,14 @@ function poDocHtml(po, draft) {
     });
     Object.keys(tripSites).forEach(name => {
         let t = 0;
-        body += '<h4>🚚 ' + escapeHtml(name) + ' — Roadside biyahe</h4><table><thead><tr><th>Date</th><th>Contractor</th><th>Poles</th><th class="r">Amount</th></tr></thead><tbody>' +
+        body += '<h4>🚚 ' + escapeHtml(name) + ' — Roadside biyahe</h4><table><thead><tr><th>Date</th><th>Subcon</th><th>Poles</th><th class="r">Amount</th></tr></thead><tbody>' +
             tripSites[name].map(it => { t += it.amount || 0; return '<tr><td>' + fmtDate(it.tripDate) + '</td><td>' + escapeHtml(it.tripBy) + '</td><td>' + it.tripPoles + (it.tripNos ? '<br><small>' + escapeHtml(it.tripNos) + '</small>' : '') + '</td><td class="r">' + peso(it.amount) + '</td></tr>'; }).join('') +
             '<tr class="sub"><td colspan="3" class="r">Subtotal — ' + escapeHtml(name) + ' (biyahe)</td><td class="r">' + peso(t) + '</td></tr></tbody></table>';
     });
     return '<div class="po-head"><div><h1>PURCHASE ORDER</h1><small>69kV Rehab Project</small></div>' +
       '<table class="po-meta"><tr><td>PO No.</td><td>:</td><td class="v po-red">' + escapeHtml(po.poNo || '—') + '</td></tr>' +
       '<tr><td>Date</td><td>:</td><td class="v">' + (po.date ? fmtDate(po.date) : '—') + '</td></tr>' +
-      '<tr><td>Contractor</td><td>:</td><td class="v">' + escapeHtml(po.worker || '—') + '</td></tr></table></div>' +
+      '<tr><td>Subcon</td><td>:</td><td class="v">' + escapeHtml(po.worker || '—') + '</td></tr></table></div>' +
       (draft ? '<p class="po-draft">PREVIEW (not saved yet)</p>' : '') +
       (body || '<p>No structure.</p>') +
       '<div class="po-total"><span>TOTAL AMOUNT</span><span>' + peso(po.amount) + '</span></div>' +
@@ -1696,6 +1907,22 @@ function renderWeek() {
     document.getElementById('wk-structs').innerHTML = html || '<p class="small-note">Walang structure na malapit nang i-retrieve.</p>';
 
 
+    const stuck = [];
+    lines.forEach(l => (data[l.id] || []).forEach(x => {
+        const t = getStatus(x).text;
+        if(!/READY TO ERECT|ERECTED/.test(t)) return;
+        const dates = [x.roadsideDate, x.excavationDate, x.draggingDate, x.erectionDate].filter(Boolean).sort();
+        const last = dates.pop();
+        if(!last) return;
+        const days = daysTo(last) * -1;
+        if(days > 14) stuck.push({ site: l.name, no: x.no, status: t, days });
+    }));
+    stuck.sort((a, b) => b.days - a.days);
+    const stuckBox = document.getElementById('wk-stuck');
+    if(stuckBox) stuckBox.innerHTML = stuck.length
+        ? stuck.map(x => '<div class="kv"><span>' + escapeHtml(x.site) + ' · ' + escapeHtml(x.no) + ' · ' + escapeHtml(x.status) + '</span><b>' + x.days + ' araw</b></div>').join('')
+        : '<p class="small-note">Walang structure na lampas 14 araw sa Ready to erect o Erected.</p>';
+
     const unsigned = pos.filter(p => !p.signature);
     document.getElementById('wk-po').innerHTML = unsigned.length
         ? unsigned.map(p => '<div class="kv"><span>' + escapeHtml(p.poNo) + ' · ' + escapeHtml(p.worker || '-') + ' · ' + fmtDate(p.date) + '</span><b>' + peso(p.amount) + '</b></div>').join('')
@@ -1721,7 +1948,7 @@ function exportExcel() {
     ])));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sRows), 'Structures');
 
-    const pRows = [['PO No.', 'Date', 'Contractor', 'Amount', 'Status', 'Signed date', 'Note']];
+    const pRows = [['PO No.', 'Date', 'Subcon', 'Amount', 'Status', 'Signed date', 'Note']];
     pos.forEach(p => pRows.push([p.poNo, p.date || '', p.worker || '', p.amount || 0, p.signature ? 'PAID' : 'NOT YET PAID', p.signedDate || '', p.note || '']));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pRows), 'POs');
 
@@ -1783,9 +2010,44 @@ function exportSitePdf(lineId) {
 }
 
 // ----- Burahin lahat ng data (local at cloud) -----
+// Dialog na may password at salitang BURAHIN, bago mabura ang lahat
+function secureClearDialog() {
+    return new Promise(resolve => {
+        const bg = document.createElement('div');
+        bg.style.cssText = 'position:fixed;inset:0;background:rgba(3,10,20,.75);z-index:3500;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+        bg.innerHTML = '<div style="background:#fff;color:#17283b;max-width:420px;width:100%;border-radius:12px;padding:18px;box-sizing:border-box">' +
+            '<h3 style="margin:0 0 6px;color:#d32f2f">⚠️ Burahin ang LAHAT ng data</h3>' +
+            '<p style="font-size:13px;color:#62748a;margin:0 0 10px">Hindi na ito maibabalik maliban kung may backup. Para magpatuloy, ilagay ang password ng account ninyo at i-type ang <b>BURAHIN</b>.</p>' +
+            '<label>Password ng account</label><input type="password" id="cl2-pass" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:12px;font-size:16px;margin:4px 0 10px;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<label>I-type ang BURAHIN</label><input type="text" id="cl2-word" autocomplete="off" style="width:100%;box-sizing:border-box;padding:12px;font-size:16px;margin:4px 0 12px;border:1.5px solid #cbd5e1;border-radius:8px">' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="secondary" id="cl2-no">Kanselahin</button><button type="button" class="danger" id="cl2-ok">🗑️ Burahin</button></div>' +
+            '<p id="cl2-msg" style="font-size:13px;margin:10px 0 0;color:#d32f2f"></p></div>';
+        document.body.appendChild(bg);
+        const done = v => { bg.remove(); resolve(v); };
+        bg.querySelector('#cl2-no').onclick = () => done(null);
+        bg.onclick = e => { if(e.target === bg) done(null); };
+        bg.querySelector('#cl2-ok').onclick = () => {
+            const msg = bg.querySelector('#cl2-msg');
+            const pass = bg.querySelector('#cl2-pass').value;
+            const word = bg.querySelector('#cl2-word').value.trim();
+            if(word !== 'BURAHIN') { msg.textContent = 'I-type nang eksakto ang BURAHIN.'; return; }
+            if(!pass) { msg.textContent = 'Ilagay ang password.'; return; }
+            done(pass);
+        };
+    });
+}
 async function clearAllData() {
-    if(!await askOk('Burahin ang LAHAT ng data? Hindi na ito maibabalik maliban kung may backup.')) return;
-    if(!await askOk('Sigurado ka ba? Ito na ang huling pagkakataon bago mabura ang lahat.')) return;
+    if(!CLOUD.ok || !CLOUD.auth || !CLOUD.auth.currentUser) { alertMsg('Mag-login muna bago burahin ang data.'); return; }
+    const pass = await secureClearDialog();
+    if(!pass) return;
+    const user = CLOUD.auth.currentUser;
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+        await user.reauthenticateWithCredential(cred);
+    } catch(e) {
+        alertMsg('Hindi tama ang password: ' + (e.code || e.message));
+        return;
+    }
     try {
         if(CLOUD.ok && CLOUD.on && CLOUD.ref) await CLOUD.ref.delete();
     } catch(e) { console.error('[cloud delete]', e); }
@@ -1861,7 +2123,7 @@ async function deletePO(id) {
     pos = pos.filter(x => x.id !== id); savePOs(); renderPO();
 }
 const PRICE_TYPES = ['B','C','D','E','HT','HS','3T','3C','3D'];
-const FLAT_PRICES = [['roadside','🚚 Roadside','Price per pole (₱)'],['excavation','⛏️ Excavation','Price per pole (₱)'],['dragging','🪢 Dragging','Price per pole (₱)'],['anchor','🔩 Anchor Screw / Lag','Price per piece (₱)']];
+const FLAT_PRICES = [['roadside','🚚 Roadside','Presyo kada biyahe (₱)'],['excavation','⛏️ Excavation','Price per pole (₱)'],['dragging','🪢 Dragging','Price per pole (₱)'],['anchor','🔩 Anchor Screw / Lag','Price per piece (₱)']];
 const TYPE_STEPS = [['erection','🏗️ Erection (price per pole)'],['transferAlpha','🔄 Transfer Alpha'],['transferBravo','🔄 Transfer Bravo'],['transferCharlie','🔄 Transfer Charlie'],['retrieval','📦 Retrieve Pole']];
 let prices = { flat: {}, types: {} };
 try {
@@ -2217,7 +2479,7 @@ function setWorkerSel(sel, name) {
 function fillWorkerSelects() {
     document.querySelectorAll('select.worker-sel').forEach(sel => {
         const cur = sel.value;
-        sel.innerHTML = '<option value="">— Select contractor —</option>' + workers.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
+        sel.innerHTML = '<option value="">— Select Subcon —</option>' + workers.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
         setWorkerSel(sel, cur);
     });
 }
@@ -2534,6 +2796,15 @@ function buildDynamicSections() {
                     </div>
                 </div>
                 <div style="margin-top:15px;">
+                    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1;">
+                        <label style="font-weight:700;">📦 Maramihan: sunod-sunod na numero</label>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;">
+                            <input type="number" id="${line.id}-range-from" placeholder="Mula" min="0">
+                            <input type="number" id="${line.id}-range-to" placeholder="Hanggang" min="0">
+                            <select id="${line.id}-range-type"><option value="">— Type —</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="HT">HT</option><option value="HS">HS</option><option value="3T">3T</option><option value="3C">3C</option><option value="3D">3D</option></select>
+                        </div>
+                        <button class="secondary" style="margin-top:8px;" onclick="bulkAddStructures('${line.id}')">➕ Idagdag ang lahat sa range</button>
+                    </div>
                     <button class="primary" id="${line.id}-save-btn" onclick="saveStructure('${line.id}')">➕ Save Structure</button>
                     <button class="secondary" id="${line.id}-cancel-btn" onclick="cancelEdit('${line.id}')" style="display:none;">❌ Cancel</button>
                 </div>
@@ -2598,8 +2869,8 @@ async function saveStructure(lineId) {
     if(!data[lineId]) data[lineId] = [];
     const arr = data[lineId];
     const existing = editingId ? arr.find(x => x.id === editingId) : null;
-    const dupe = arr.find(x => x !== existing && String(x.no).trim().toLowerCase() === no.toLowerCase() && x.type === type);
-    if(dupe) { alertMsg('Hindi tinanggap: mayroon nang Structure ' + no + ' (Type ' + type + ') sa project site na ito.'); return; }
+    const dupe = arr.find(x => x !== existing && String(x.no).trim().toLowerCase() === no.toLowerCase());
+    if(dupe) { alertMsg('Hindi tinanggap: mayroon nang Structure ' + no + ' sa project site na ito.'); return; }
 
     if(existing) {
         if(oldNo && oldNo !== no) {
@@ -2618,6 +2889,35 @@ async function saveStructure(lineId) {
     clearForm(lineId);
     renderAllLineLists();
     updateDashboard();
+}
+
+// Maramihang structure: halimbawa 180 hanggang 195, type 3T. Ang nagkakapareho ay hindi isasama.
+function bulkAddStructures(lineId) {
+    const from = parseInt(document.getElementById(lineId + '-range-from').value, 10);
+    const to = parseInt(document.getElementById(lineId + '-range-to').value, 10);
+    const type = document.getElementById(lineId + '-range-type').value;
+    if(isNaN(from) || isNaN(to)) { alertMsg('Ilagay ang mula at hanggang na numero.'); return; }
+    if(to < from) { alertMsg('Ang "hanggang" ay dapat mas malaki sa "mula".'); return; }
+    if(to - from > 199) { alertMsg('Hanggang 200 na structure lang sa isang pagkakataon.'); return; }
+    if(!type) { alertMsg('Pumili ng Structure Type.'); return; }
+    if(!data[lineId]) data[lineId] = [];
+    const arr = data[lineId];
+    const existing = new Set(arr.map(x => String(x.no).trim().toLowerCase()));
+    let added = 0;
+    const skipped = [];
+    for(let n = from; n <= to; n++) {
+        const no = String(n);
+        if(existing.has(no.toLowerCase())) { skipped.push(no); continue; }
+        arr.push({ id: Date.now() + n, no, oldNo: '', type, poles: getDefaultPoles(type) || 1, remarks: '' });
+        existing.add(no.toLowerCase());
+        added++;
+    }
+    if(added) saveAllData();
+    document.getElementById(lineId + '-range-from').value = '';
+    document.getElementById(lineId + '-range-to').value = '';
+    renderAllLineLists();
+    updateDashboard();
+    alertMsg('✅ Naidagdag ang ' + added + ' structure.' + (skipped.length ? ' Hindi isinama (may kapareho na): ' + skipped.join(', ') : ''));
 }
 
 // === MGA HAKBANG PAGE ===
@@ -2663,6 +2963,136 @@ document.addEventListener('change', function(e) {
     const c = e.target;
     if(c.classList && c.classList.contains('st-chk')) { if(c.checked) stSel.add(c.value); else stSel.delete(c.value); stPickText(); loadSteps(); }
 });
+// ----- Roadside Hauling: bawat biyahe ay may petsa, gumawa, at dami ng poste; sinisingil ayon sa bilang ng biyahe -----
+function renderRoadside() {
+    const sel = document.getElementById('rs-site');
+    if(!sel) return;
+    setTimeout(renderRsStructs, 0);
+    if(!sel.options.length || sel.dataset.ready !== '1') {
+        const keep = sel.value;
+        sel.innerHTML = lines.map(l => '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>').join('');
+        if(keep && lines.some(l => l.id === keep)) sel.value = keep;
+        sel.dataset.ready = '1';
+    }
+    fillWorkerSelects();
+    const lineId = sel.value;
+    const price = parseFloat((prices.flat || {}).roadside) || 0;
+    const pe = document.getElementById('rs-price');
+    if(pe) pe.innerHTML = 'Presyo kada biyahe: <strong>' + peso(price) + '</strong> (itakda sa 💲 Prices)';
+    const box = document.getElementById('rs-list');
+    if(!box) return;
+    if(!lineId) { box.innerHTML = '<p class="small-note">Walang project site.</p>'; return; }
+    const list = (trips[lineId] || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if(!list.length) { box.innerHTML = '<p class="small-note">Wala pang biyahe sa site na ito.</p>'; return; }
+    box.innerHTML = '<div class="table-wrapper"><table class="tight"><thead><tr><th>Petsa</th><th>Gumawa</th><th class="r">Poste</th><th class="r">Presyo</th><th>Status</th><th></th></tr></thead><tbody>' +
+        list.map(t => {
+            const billed = tripBilled(t.id);
+            return '<tr><td>' + fmtDate(t.date) + '</td><td>' + escapeHtml(t.by) + '</td><td class="r">' + (parseInt(t.poles, 10) || 0) + '</td><td class="r">' + peso(t.price) + '</td><td>' +
+                (billed ? '✅ Nasingil na' : '⏳ Hindi pa') + '</td><td>' +
+                (billed ? '' : '<button type="button" class="danger btn-sm" onclick="deleteRoadsideTrip(\'' + lineId + '\', \'' + t.id + '\')">🗑️</button>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+}
+// Mga poste na wala pang biyahe sa structure na ito
+function rsFreeIdx(lineId, st) {
+    const n = parseInt(st.poles, 10) || 0;
+    const used = new Set();
+    (trips[lineId] || []).forEach(t => (t.assigned || []).forEach(k => used.add(k)));
+    const free = [];
+    for(let i = 0; i < n; i++) if(!used.has(rhKey(st.id, i))) free.push(i);
+    return free;
+}
+function renderRsStructs() {
+    const box = document.getElementById('rs-structs');
+    if(!box) return;
+    const lineId = (document.getElementById('rs-site') || {}).value || '';
+    const karga = parseInt(document.getElementById('rs-poles').value, 10) || 0;
+    const list = (data[lineId] || []).slice().sort((a, b) => String(a.no).localeCompare(String(b.no), undefined, { numeric: true }));
+    if(!karga) { box.innerHTML = '<p class="small-note">Ilagay muna ang dami ng nakarga na poste para lumabas ang listahan ng structure.</p>'; return; }
+    if(!list.length) { box.innerHTML = '<p class="small-note">Wala pang structure sa site na ito.</p>'; return; }
+    box.innerHTML = '<div style="font-size:12px;font-weight:700;color:#334e68;margin-bottom:6px">Structure na nakarga (pumili hanggang tumugma sa karga)</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">' +
+        list.map(st => {
+            const free = rsFreeIdx(lineId, st).length;
+            return '<label style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;' + (free ? '' : 'opacity:.45;') + '">' +
+                '<input type="checkbox" class="rs-chk" value="' + st.id + '" data-poles="' + free + '"' + (free ? '' : ' disabled') + '>' +
+                '<span><strong>' + escapeHtml(st.no) + '</strong><br><small>' + escapeHtml(st.type) + ' · ' + free + ' poste</small></span></label>';
+        }).join('') + '</div><div id="rs-sum" class="small-note" style="margin-top:6px"></div>';
+    box.onchange = e => {
+        if(!e.target.classList || !e.target.classList.contains('rs-chk')) return;
+        const max = parseInt(document.getElementById('rs-poles').value, 10) || 0;
+        const sum = [...box.querySelectorAll('.rs-chk:checked')].reduce((t, c) => t + (parseInt(c.dataset.poles, 10) || 0), 0);
+        if(sum > max) { e.target.checked = false; alertMsg('Lampas na sa karga (' + max + ' poste).'); }
+        rsSum();
+    };
+    rsSum();
+}
+function rsSum() {
+    const el = document.getElementById('rs-sum');
+    if(!el) return;
+    const karga = parseInt(document.getElementById('rs-poles').value, 10) || 0;
+    const sum = [...document.querySelectorAll('#rs-structs .rs-chk:checked')].reduce((t, c) => t + (parseInt(c.dataset.poles, 10) || 0), 0);
+    el.textContent = 'Nakapili: ' + sum + ' / ' + karga + ' poste';
+}
+function addRoadsideTrip() {
+    const lineId = document.getElementById('rs-site').value;
+    const date = document.getElementById('rs-date').value;
+    const by = document.getElementById('rs-by').value.trim();
+    const poles = parseInt(document.getElementById('rs-poles').value, 10) || 0;
+    const price = parseFloat((prices.flat || {}).roadside) || 0;
+    if(!lineId) { alertMsg('Pumili ng project site.'); return; }
+    if(!date) { alertMsg('Ilagay ang petsa ng biyahe.'); return; }
+    if(!by) { alertMsg('Pumili ng gumawa.'); return; }
+    if(poles < 1) { alertMsg('Ilagay ang dami ng poste na nakarga.'); return; }
+    if(price <= 0) { alertMsg('Itakda muna ang presyo kada biyahe sa 💲 Prices.'); return; }
+    const picked = [...document.querySelectorAll('#rs-structs .rs-chk:checked')].map(c => String(c.value));
+    const items = [], keys = [];
+    let sum = 0;
+    picked.forEach(sid => {
+        const st = (data[lineId] || []).find(x => String(x.id) === sid);
+        if(!st) return;
+        const free = rsFreeIdx(lineId, st);
+        sum += free.length;
+        items.push({ structId: st.id, no: st.no, poles: free.length });
+        free.forEach(i => keys.push(rhKey(st.id, i)));
+    });
+    if(sum !== poles) { alertMsg('Dapat tumugma sa karga: nakapili ' + sum + ', karga ' + poles + ' poste.'); return; }
+    const rec = { id: 't' + Date.now(), date, by, poles, price, items, assigned: keys };
+    (trips[lineId] = trips[lineId] || []).push(rec);
+    // Ang mga napiling poste ay malalagyan ng petsa at gumawa ng biyahe (roadside)
+    (data[lineId] || []).forEach(st => {
+        const rows = unitsOf(st, 'roadside');
+        let changed = false;
+        rows.forEach((u, i) => { if(keys.indexOf(rhKey(st.id, i)) !== -1) { u.date = date; u.by = by; changed = true; } });
+        if(changed) setUnits(st, 'roadside', rows);
+    });
+    saveTrips();
+    saveAllData();
+    document.getElementById('rs-poles').value = '';
+    renderRoadside();
+    updateDashboard();
+    loadSteps();
+    alertMsg('✅ Naidagdag ang biyahe at na-update ang roadside ng ' + items.length + ' structure.');
+}
+async function deleteRoadsideTrip(lineId, tid) {
+    if(tripBilled(tid)) { alertMsg('Nasingil na sa PO ang biyaheng ito. Hindi na mabubura.'); return; }
+    if(!(await askOk('Burahin ang biyaheng ito?'))) return;
+    const gone = (trips[lineId] || []).find(x => x.id === tid);
+    if(gone && gone.assigned && gone.assigned.length) {
+        const keys = new Set(gone.assigned);
+        (data[lineId] || []).forEach(st => {
+            const rows = unitsOf(st, 'roadside');
+            let changed = false;
+            rows.forEach((u, i) => { if(keys.has(rhKey(st.id, i))) { u.date = ''; u.by = ''; changed = true; } });
+            if(changed) setUnits(st, 'roadside', rows);
+        });
+        saveAllData();
+    }
+    trips[lineId] = (trips[lineId] || []).filter(x => x.id !== tid);
+    saveTrips();
+    renderRoadside();
+    updateDashboard();
+    loadSteps();
+}
 function renderTripPrices() {
     const box = document.getElementById('trip-prices');
     if(!box) return;
@@ -2680,7 +3110,48 @@ function setTripPrice(lineId, val) {
     renderTripCard(lineId);
     alertMsg('✅ Na-save ang presyo kada biyahe.');
 }
-function stepsSiteChanged() { stepsFillStructs([]); loadSteps(); renderTripCard(document.getElementById('st-site').value); }
+let stShutdownWorkers = {};
+function stepsFillShutdowns() {
+    const sel = document.getElementById('st-shutdown');
+    if(!sel) return;
+    const lineId = document.getElementById('st-site').value;
+    const keep = sel.value;
+    const list = [...(shutdowns[lineId] || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    sel.innerHTML = '<option value="">— Wala —</option>' + list.map((sd, i) => {
+        const n = (sd.assignments || []).reduce((t, a) => t + (a.structIds || []).length, 0);
+        return '<option value="' + sd.id + '">Shutdown #' + (i + 1) + ' · ' + fmtDate(sd.date) + ' · ' + n + ' structure</option>';
+    }).join('');
+    if(keep && list.some(x => x.id === keep)) sel.value = keep;
+}
+function stepsShutdownChanged() {
+    const lineId = document.getElementById('st-site').value;
+    const sdId = document.getElementById('st-shutdown').value;
+    stShutdownWorkers = {};
+    if(!sdId) { stepsFillStructs([]); loadSteps(); return; }
+    const sd = (shutdowns[lineId] || []).find(x => x.id === sdId);
+    if(!sd) return;
+    (sd.assignments || []).forEach(a => (a.structIds || []).forEach(id => { stShutdownWorkers[String(id)] = a.worker || ''; }));
+    const ids = Object.keys(stShutdownWorkers).filter(id => (data[lineId] || []).some(x => String(x.id) === id));
+    stepsFillStructs(ids);
+    loadSteps();
+}
+// Gumawa galing sa shutdown ang ilalagay sa mga hakbang na may petsa pero walang pangalan pa
+function sdFillWorkers(item) {
+    const w = stShutdownWorkers[String(item.id)];
+    if(!w) return;
+    ['erection', 'excavation', 'dragging', 'roadside'].forEach(kind => {
+        const rows = unitsOf(item, kind).map(u => ({ date: u.date, by: u.by || (u.date ? w : '') }));
+        setUnits(item, kind, rows);
+    });
+    if(item.anchorDate && !item.anchorBy) item.anchorBy = w;
+    ['Alpha', 'Bravo', 'Charlie'].forEach(n => {
+        if(item['transfer' + n + 'Date'] && !item['transfer' + n + 'By']) item['transfer' + n + 'By'] = w;
+    });
+    if(item.retrievalDate && !item.retrievalBy) item.retrievalBy = w;
+}
+function stepsSiteChanged() {
+    stShutdownWorkers = {};
+    stepsFillShutdowns(); stepsFillStructs([]); loadSteps(); renderTripCard(document.getElementById('st-site').value); }
 function stepsSelected() {
     const lineId = document.getElementById('st-site').value;
     const items = sortedStructures(data[lineId] || []).filter(x => stSel.has(String(x.id)));
@@ -2749,6 +3220,7 @@ function stBlank() {
     document.getElementById('st-retrieval-complete').checked = false;
 }
 function loadSteps() {
+    setTimeout(() => { try { renderRhBox(); } catch(e) { console.error('[rh]', e); } }, 0);
     const { items } = stepsSelected();
     const card = document.getElementById('st-card'), note = document.getElementById('st-multi-note');
     if(!items.length) { card.style.display = 'none'; return; }
@@ -2761,6 +3233,7 @@ function loadSteps() {
         document.getElementById('st-title').textContent = '🪜 ' + items.length + ' structure ang napili';
         note.textContent = 'Ilalapat sa lahat ng ' + items.length + ' structure ang mga petsa, gumawa, at dami ng anchor na ilalagay mo sa ibaba. Ang mga blangko ay hindi magbabago.';
         stBlank();
+        document.getElementById('st-retrieval-complete').checked = items.length > 0 && items.every(i => i.retrievalComplete);
         const mx = Math.max(...items.map(i => parseInt(i.poles) || 1));
         const blank = Array.from({ length: mx }, () => ({ date: '', by: '' }));
         renderUnits('erection', blank);
@@ -2796,6 +3269,91 @@ function openSteps(lineId, id) {
 }
 // Kapag may petsa ang Retrieve, lalagyan ng parehong petsa ang mga hakbang na wala pang petsa.
 // Hindi ginagalaw ang mga hakbang na may petsa na.
+// ----- Roadside Hauling sa Steps: pumili ng poste na nakarga sa biyahe; petsa ng biyahe ang ilalagay -----
+function rhKey(sid, idx) { return String(sid) + '|' + idx; }
+function rhTripsOf(lineId) { return (trips[lineId] || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date))); }
+function renderRhBox() {
+    const box = document.getElementById('rh-box');
+    if(!box) return;
+    const lineId = document.getElementById('st-site').value;
+    const { items } = stepsSelected();
+    const list = rhTripsOf(lineId);
+    if(!list.length || !items.length) {
+        box.innerHTML = list.length ? '<p class="small-note">Pumili ng structure sa itaas para makapili ng poste.</p>' : '<p class="small-note">Wala pang Roadside Hauling sa site na ito. Maglagay muna sa 🚚 page.</p>';
+        return;
+    }
+    let cur = box.dataset.trip;
+    if(!list.some(t => t.id === cur)) cur = list[0].id;
+    box.dataset.trip = cur;
+    const trip = list.find(t => t.id === cur);
+    const assigned = new Set(trip.assigned || []);
+    const takenElsewhere = new Set();
+    list.forEach(t => { if(t.id !== cur) (t.assigned || []).forEach(k => takenElsewhere.add(k)); });
+    let html = '<div style="font-weight:700;margin-bottom:6px">🚚 Biyahe ng poste</div>' +
+        '<select id="rh-trip" onchange="rhPickTrip(this.value)" style="width:100%;margin-bottom:8px">' +
+        list.map(t => '<option value="' + t.id + '"' + (t.id === cur ? ' selected' : '') + '>' + fmtDate(t.date) + ' · ' + escapeHtml(t.by) + ' · ' + (parseInt(t.poles, 10) || 0) + ' poste</option>').join('') +
+        '</select><div id="rh-count" class="small-note" style="margin-bottom:6px"></div>';
+    items.forEach(st => {
+        const n = parseInt(st.poles, 10) || 0;
+        if(!n) return;
+        const boxes = [];
+        for(let i = 0; i < n; i++) {
+            const k = rhKey(st.id, i);
+            boxes.push('<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 10px 3px 0;cursor:pointer"><input type="checkbox" class="rh-chk" value="' + k + '"' +
+                (assigned.has(k) ? ' checked' : '') + (takenElsewhere.has(k) ? ' disabled' : '') + '> P' + (i + 1) + '</label>');
+        }
+        html += '<div style="padding:6px 0;border-bottom:1px solid #e2e8f0"><strong>' + escapeHtml(st.no) + '</strong> <small>(' + n + ' poste)</small><div>' + boxes.join('') + '</div></div>';
+    });
+    html += '<button type="button" class="primary" style="margin-top:8px" onclick="rhSave()">💾 I-save ang poste ng biyahe</button>';
+    box.innerHTML = html;
+    box.onchange = e => {
+        if(!e.target.classList || !e.target.classList.contains('rh-chk')) return;
+        const max = parseInt(trip.poles, 10) || 0;
+        const n = box.querySelectorAll('.rh-chk:checked').length;
+        if(n > max) { e.target.checked = false; alertMsg('Lampas na sa dami ng poste ng biyahe (' + max + ').'); }
+        rhCount();
+    };
+    rhCount();
+}
+function rhCount() {
+    const box = document.getElementById('rh-box');
+    const el = document.getElementById('rh-count');
+    if(!box || !el) return;
+    const lineId = document.getElementById('st-site').value;
+    const trip = (trips[lineId] || []).find(t => t.id === box.dataset.trip);
+    if(!trip) return;
+    el.textContent = 'Nakapili: ' + box.querySelectorAll('.rh-chk:checked').length + ' / ' + (parseInt(trip.poles, 10) || 0) + ' poste';
+}
+function rhPickTrip(id) {
+    document.getElementById('rh-box').dataset.trip = id;
+    renderRhBox();
+}
+// Ilalagay ang petsa at gumawa ng biyahe sa mga napiling poste; aalisin ang tinanggal
+function rhSave() {
+    const box = document.getElementById('rh-box');
+    const lineId = document.getElementById('st-site').value;
+    const trip = (trips[lineId] || []).find(t => t.id === box.dataset.trip);
+    if(!trip) return;
+    const chosen = [...box.querySelectorAll('.rh-chk:checked')].map(c => c.value);
+    if(chosen.length > (parseInt(trip.poles, 10) || 0)) { alertMsg('Lampas na sa dami ng poste ng biyahe.'); return; }
+    const prev = new Set(trip.assigned || []);
+    const now = new Set(chosen);
+    (data[lineId] || []).forEach(st => {
+        const rows = unitsOf(st, 'roadside');
+        let changed = false;
+        rows.forEach((u, i) => {
+            const k = rhKey(st.id, i);
+            if(prev.has(k) && !now.has(k)) { u.date = ''; u.by = ''; changed = true; }
+            if(now.has(k) && !prev.has(k)) { u.date = trip.date; u.by = trip.by; changed = true; }
+        });
+        if(changed) setUnits(st, 'roadside', rows);
+    });
+    trip.assigned = chosen;
+    saveTrips();
+    saveAllData();
+    loadSteps();
+    alertMsg('✅ Na-save ang poste ng biyahe (' + chosen.length + ' poste).');
+}
 function fillFromRetrieval(item) {
     const d = item.retrievalDate;
     if(!d) return;
@@ -2856,6 +3414,7 @@ function saveSteps() {
         }
     });
     items.forEach(fillFromRetrieval);
+    items.forEach(sdFillWorkers);
     items.forEach(it => unitsOf(it, 'erection').concat(unitsOf(it, 'excavation'), unitsOf(it, 'dragging'), unitsOf(it, 'roadside')).forEach(u => {
         const n = (u.by || '').trim();
         if(n && !workers.some(w => sameName(w, n))) workers.push(n);
@@ -2920,7 +3479,7 @@ function renderLineList(lineId) {
         return;
     }
     
-    let html = '<table class="tight"><thead><tr><th>Status</th><th>Struct No.</th><th>Type</th><th>Poles</th><th>Roadside</th><th>Excavation</th><th>Dragging</th><th>Erection</th><th>Anchor Screw / Lag</th><th>Phase (A / B / C)</th><th>Retrieval</th><th>Contractor</th><th>Remarks</th><th>Actions</th></tr></thead><tbody>';
+    let html = '<table class="tight"><thead><tr><th>Status</th><th>Struct No.</th><th>Type</th><th>Poles</th><th>Roadside</th><th>Excavation</th><th>Dragging</th><th>Erection</th><th>Anchor Screw / Lag</th><th>Phase (A / B / C)</th><th>Retrieval</th><th>Subcon</th><th>Remarks</th><th>Actions</th></tr></thead><tbody>';
     
     arr.forEach(markStructureStatus);
     sortedStructures(arr).forEach(item => {
@@ -2938,7 +3497,7 @@ function renderLineList(lineId) {
             <td>${structNoDisplay}</td>
             <td>${item.type}</td>
             <td>${item.poles}</td>
-            ${mk(item.roadsideDate)}
+            ${roadCell(item)}
             ${mk(item.excavationDate)}
             ${mk(item.draggingDate)}
             ${mk(item.erectionDate)}
@@ -3028,6 +3587,14 @@ function dashSeenAll() {
     if(!dashSeen) { try { dashSeen = JSON.parse(localStorage.getItem('proj_dash_seen_v1') || '{}') || {}; } catch(e) { dashSeen = {}; } }
     return dashSeen;
 }
+function newSub(key, dec) {
+    const all = newAll();
+    const m = all[key];
+    if(!m || !dec) return;
+    m.n = Math.max(0, (m.n || 0) - dec);
+    if(m.n === 0) delete all[key];
+    newSave();
+}
 function dashTrack(lineId, key, cur) {
     const seen = dashSeenAll();
     seen[lineId] = seen[lineId] || {};
@@ -3035,7 +3602,7 @@ function dashTrack(lineId, key, cur) {
     const base = (prev && typeof prev === 'object') ? prev.n : prev;
     const mk = 'd|' + lineId + '|' + key;
     if(base === undefined) seen[lineId][key] = cur;
-    else { if(cur > base) newAdd(mk, cur - base); seen[lineId][key] = cur; }
+    else { if(cur > base) newAdd(mk, cur - base); else if(cur < base) newSub(mk, base - cur); seen[lineId][key] = cur; }
     try { lsSet('proj_dash_seen_v1', JSON.stringify(seen)); } catch(e) {}
     return newCount(mk);
 }
@@ -3073,6 +3640,7 @@ function updateDashboardCore() {
         const prepared = count('READY TO ERECT'), inProg = count('IN PROGRESS'), notStarted = count('NOT STARTED');
         const polesPlaced = items.reduce((a, i) => a + (parseInt(i.poles) || 0), 0);
         const clearedPoles = items.filter(i => getStatus(i).text.includes('COMPLETED')).reduce((a, i) => a + (parseInt(i.poles) || 0), 0);
+        const roadPoles = items.reduce((a, i) => a + (i.roadsidePoles ? i.roadsidePoles.filter(u => u && u.date).length : (i.roadsideDate ? (parseInt(i.poles, 10) || 0) : 0)), 0);
         const sdDone = (shutdowns[line.id] || []).length;
         const sdPlanned = parseInt(line.totalShutdowns) || 0;
         gStructs += items.length; gPoles += polesPlaced; gCleared += cleared; gClearedPoles += clearedPoles;
@@ -3088,12 +3656,13 @@ function updateDashboardCore() {
             <div class="pbar" title="${pct}% of Target Poles"><i style="width:${pct}%"></i></div>
             <div class="pbar-note">${pct}% of Target Poles</div>
             ${sdPlanned ? kv('Remaining shutdowns', Math.max(0, sdPlanned - sdDone)) : ''}
-                        ${kv('Completed', cleared, '', ribbon(newCleared, line.id, 'cleared'))}
+                                    ${kv('Not started', notStarted)}
+            ${kv('Roadside (poles)', roadPoles, '', ribbon(dashTrack(line.id, 'roadside', roadPoles), line.id, 'roadside'))}
+            ${kv('In progress', inProg, '', ribbon(dashTrack(line.id, 'inprogress', inProg), line.id, 'inprogress'))}
+            ${kv('Ready to erect', prepared, '', ribbon(dashTrack(line.id, 'prepared', prepared), line.id, 'prepared'))}
             ${kv('Erected', erected, '', ribbon(newErected, line.id, 'erected'))}
             ${kv('Transferred', transferred, 'purple', ribbon(dashTrack(line.id, 'transferred', transferred), line.id, 'transferred'))}
-            ${kv('Ready to erect', prepared, '', ribbon(dashTrack(line.id, 'prepared', prepared), line.id, 'prepared'))}
-            ${kv('In progress', inProg, '', ribbon(dashTrack(line.id, 'inprogress', inProg), line.id, 'inprogress'))}
-            ${kv('Not started', notStarted)}
+            ${kv('Completed', cleared, '', ribbon(newCleared, line.id, 'cleared'))}
         </div>`;
     });
     html += '</div>';
@@ -3121,8 +3690,9 @@ function renderReport() {
         html += '<h3>📍 ' + escapeHtml(line.name) + '</h3>';
         html += '<div class="table-wrapper"><table style="min-width:900px"><thead><tr><th>Status</th><th>Old No.</th><th>New No.</th><th>Type</th><th>Poles</th><th>Roadside</th><th>Excavation</th><th>Dragging</th><th>Erection</th><th>Anchor/Lag</th><th>Transfer</th><th>Retrieval</th><th>Remarks</th></tr></thead><tbody>';
         items.forEach(item => {
-            html += '<tr><td>' + getStatus(item).text + '</td><td>' + escapeHtml(item.oldNo || '-') + '</td><td><strong>' + escapeHtml(item.no) + '</strong></td><td>' + escapeHtml(item.type) + '</td><td>' + (item.poles || '-') + '</td>' +
-              '<td>' + fmtDate(item.roadsideDate) + '</td><td>' + fmtDate(item.excavationDate) + '</td><td>' + fmtDate(item.draggingDate) + '</td><td>' + fmtDate(item.erectionDate) + '</td><td>' + fmtDate(item.anchorDate) + (item.anchorQty ? ' (×' + item.anchorQty + ')' : '') + '</td>' +
+            const stt = getStatus(item);
+            html += '<tr><td><span class="status ' + stt.class + '">' + stt.text + '</span></td><td>' + escapeHtml(item.oldNo || '-') + '</td><td><strong>' + escapeHtml(item.no) + '</strong></td><td>' + escapeHtml(item.type) + '</td><td>' + (item.poles || '-') + '</td>' +
+              '<td>' + (roadInfo(item).done ? fmtDate(roadInfo(item).date) : (roadInfo(item).text === '○' ? '-' : roadInfo(item).text)) + '</td><td>' + fmtDate(item.excavationDate) + '</td><td>' + fmtDate(item.draggingDate) + '</td><td>' + fmtDate(item.erectionDate) + '</td><td>' + fmtDate(item.anchorDate) + (item.anchorQty ? ' (×' + item.anchorQty + ')' : '') + '</td>' +
               '<td>' + fmtTransfer(item) + '</td><td>' + (item.retrievalComplete ? '✅ COMPLETED' : '⏳ NOT YET') + '</td><td>' + escapeHtml(item.remarks || '-') + '</td></tr>';
         });
         html += '</tbody></table></div><br>';
@@ -3155,13 +3725,15 @@ function showTab(id) {
     window.scrollTo(0, 0);
     if(id === 'linesHub') renderLinesHub();
     if(id === 'shutdownPage') renderShutdownSummary();
-    if(id === 'stepsPage') { fillWorkerSelects(); stepsRefresh(); renderTripCard(document.getElementById('st-site').value); }
+    if(id === 'stepsPage') { fillWorkerSelects(); stepsRefresh(); stepsFillShutdowns(); renderTripCard(document.getElementById('st-site').value); }
     if(id === 'workersPage') renderWorkersPage();
     if(id === 'pricesPage') { const d0 = document.querySelector('#pr-flat details.stage'); if(d0) d0.open = true; }
     if(id === 'poPage') renderPO();
     if(id === 'hwPage') { hwRender(); renderHwHistory(); }
     if(id === 'weekPage') renderWeek();
+    if(id === 'roadsidePage') renderRoadside();
     if(id === 'pricesPage') applyPriceLock();
+    if(id === 'settingsPage') renderLog();
     
     
     if(id === 'report') renderReport();
@@ -3183,6 +3755,7 @@ applyPriceLock();
 // === START ===
 async function startApp() {
 cloudInit();
+if('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(e => console.error('[sw]', e)); }
 cloudWatchAuth();
 cloudShowStatus(null);
 if(APP_LOGO_SRC) { ['header-logo', 'nav-logo'].forEach(id => { const el = document.getElementById(id); if(el) el.src = APP_LOGO_SRC; }); }
@@ -3195,6 +3768,7 @@ safeRun('lines', renderLinesList);
 safeRun('dedupe', dedupeLines);
 safeRun('sections', buildDynamicSections);
 safeRun('views', newBumpViews);
+safeRun('logswitch', logInitSwitch);
 safeRun('trips', () => lines.forEach(l => { renderTripForm(l.id); renderTrips(l.id); }));
 safeRun('dashboard', updateDashboard);
 try { const t = sessionStorage.getItem('proj_tab'); if(t && t !== 'dashboard' && document.getElementById(t)) showTab(t); } catch(e) {}
