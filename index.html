@@ -3653,16 +3653,16 @@ function renumberBadge(siteName, no) {
     if(!hit) return '';
     return ' <span title="Changed from ' + escapeHtml(String(hit.from)) + '" style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:#fff1e0;color:#b45309;font-size:11px;font-weight:700">🔁 from ' + escapeHtml(String(hit.from)) + '</span>';
 }
-// Structures whose number changed in the last 30 days, from the change log
-function renumberRows(siteName) {
+// Structures whose number changed in the last 30 days: one row with a NEW flag, tap it to open the site
+function renumberRows(line) {
     let log = [];
     try { log = JSON.parse(localStorage.getItem('proj_log') || '[]') || []; } catch(e) { log = []; }
     const since = Date.now() - 30 * 86400000;
-    const ch = log.filter(e => e.site === siteName && e.field === 'Structure' && e.from !== '' && e.from !== undefined && new Date(e.t).getTime() >= since);
-    if(!ch.length) return '';
-    const rows = ch.slice(0, 3).map(e => '<div style="font-size:13px;color:#62748a;padding:0 4px 4px">' +
-        escapeHtml(String(e.from)) + ' → <strong>' + escapeHtml(String(e.to)) + '</strong> · ' + escapeHtml(e.by || '') + '</div>').join('');
-    return '<div class="kv"><span>Changed structure number</span><b>' + ch.length + '</b></div>' + rows;
+    const n = log.filter(e => e.site === line.name && e.field === 'Structure' && e.from !== '' && e.from !== undefined && new Date(e.t).getTime() >= since).length;
+    const fresh = dashTrack(line.id, 'renumber', n);
+    if(!n) return '';
+    const rib = fresh ? ' <span class="ribbon" role="button" style="cursor:pointer" onclick="newOpenFromDash(\'' + line.id + '\', \'renumber\')">' + fresh + ' NEW</span>' : '';
+    return '<div class="kv"><span>Changed structure number</span><span class="kv-val"><b>' + n + '</b>' + rib + '</span></div>';
 }
 function updateDashboard() {
     try { updateDashboardCore(); }
@@ -3704,7 +3704,7 @@ function updateDashboardCore() {
             <div class="pbar" title="${pct}% of Target Poles"><i style="width:${pct}%"></i></div>
             <div class="pbar-note">${pct}% of Target Poles</div>
             ${sdPlanned ? kv('Remaining shutdowns', Math.max(0, sdPlanned - sdDone)) : ''}
-            ${renumberRows(line.name)}
+            ${renumberRows(line)}
                                     ${kv('Not started', notStarted)}
             ${kv('Roadside (poles)', roadPoles, '', ribbon(dashTrack(line.id, 'roadside', roadPoles), line.id, 'roadside'))}
             ${kv('In progress', inProg, '', ribbon(dashTrack(line.id, 'inprogress', inProg), line.id, 'inprogress'))}
