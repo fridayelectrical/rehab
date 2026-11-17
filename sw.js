@@ -2,7 +2,7 @@
 // Keeps the app, the confirm page, and the libraries (Firebase, Excel, PDF) on the phone,
 // so the app opens and exports work without internet.
 const CACHE = 'rehab-offline-v2';
-const CORE = ['./', './index.html', './confirm.html'];
+const CORE = ['./', './index.html', './confirm.html', './logo.png', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
